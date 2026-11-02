@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { prisma } from "@/lib/db";
 
-export type ExportModule = "database" | "companies" | "to-companies" | "invoices" | "referrals";
+export type ExportModule = "companies" | "to-companies" | "invoices" | "referrals";
 export type ExportFormat = "excel" | "csv" | "json";
 
 interface ExportFilters {
@@ -13,9 +13,10 @@ interface ExportFilters {
 
 async function fetchModuleData(
   module: ExportModule,
-  filters: ExportFilters
+  filters: ExportFilters,
+  adminId: number
 ): Promise<Record<string, unknown>[]> {
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { adminId };
 
   if (filters.dateFrom || filters.dateTo) {
     const dateFilter: Record<string, Date> = {};
@@ -43,6 +44,15 @@ async function fetchModuleData(
         esiNo: r.esiNo ?? "",
         address: r.address ?? "",
         epfNo: r.epfNo ?? "",
+        state: r.state ?? "",
+        stateCode: r.stateCode ?? "",
+        bankHolderName: r.bankHolderName ?? "",
+        bankAccountNumber: r.bankAccountNumber ?? "",
+        bankIfscCode: r.bankIfscCode ?? "",
+        bankName: r.bankName ?? "",
+        bankBranchName: r.bankBranchName ?? "",
+        website: r.website ?? "",
+        status: r.status,
       })) as Record<string, unknown>[];
     }
     case "to-companies": {
@@ -55,6 +65,10 @@ async function fetchModuleData(
         name: r.name,
         gstNo: r.gstNo ?? "",
         vendorCode: r.vendorCode ?? "",
+        email: r.email ?? "",
+        address: r.address ?? "",
+        state: r.state ?? "",
+        stateCode: r.stateCode ?? "",
         date: r.date.toISOString().split("T")[0],
       })) as Record<string, unknown>[];
     }
@@ -78,37 +92,32 @@ async function fetchModuleData(
         orderBy: { id: "asc" },
       });
       return rows.map((r) => ({
+        ...r,
+        adminId: undefined,
+        date: r.date.toISOString().split("T")[0],
+        dateOfSupply: r.dateOfSupply?.toISOString().split("T")[0] ?? "",
         id: r.id,
         orderId: r.orderId,
         company: r.company?.name ?? "",
         toCompany: r.toCompany?.name ?? "",
-        email: r.email ?? "",
-        gst: r.gst ?? "",
         amount: r.amount?.toString() ?? "0",
         total: r.total?.toString() ?? "0",
-        date: r.date.toISOString().split("T")[0],
-        items: r.items.length,
+        items: r.items.map((item) => ({
+          description: item.description ?? "",
+          hsn: item.hsn ?? "",
+          sac: item.sac ?? "",
+          quantity: item.quantity.toString(),
+          unit: item.unit,
+          price: item.price.toString(),
+          per: item.per,
+          amount: item.amount.toString(),
+          gstType: item.gstType ?? "",
+          igstRate: item.igstRate?.toString() ?? "",
+          cgstRate: item.cgstRate?.toString() ?? "",
+          sgstRate: item.sgstRate?.toString() ?? "",
+        })),
       })) as Record<string, unknown>[];
     }
-    case "database": {
-      const [companies, toCompanies, referrals, invoices] = await Promise.all([
-        prisma.company.findMany({ orderBy: { id: "asc" } }),
-        prisma.toCompany.findMany({ orderBy: { id: "asc" } }),
-        prisma.referral.findMany({ orderBy: { id: "asc" } }),
-        prisma.invoice.findMany({ orderBy: { id: "asc" } }),
-      ]);
-      return [
-        {
-          companies,
-          toCompanies,
-          referrals,
-          invoices,
-          exportedAt: new Date().toISOString(),
-        },
-      ];
-    }
-    default:
-      return [];
   }
 }
 
@@ -150,7 +159,8 @@ export async function exportData(
   module: ExportModule,
   format: ExportFormat,
   filters: ExportFilters,
-  user: string
+  user: string,
+  adminId: number
 ): Promise<{
   buffer: Buffer;
   fileName: string;
@@ -158,7 +168,7 @@ export async function exportData(
   historyId: number;
   recordCount: number;
 }> {
-  const data = await fetchModuleData(module, filters);
+  const data = await fetchModuleData(module, filters, adminId);
   const { buffer, extension, mimeType } = formatData(data, format);
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const fileName = `export_${module}_${timestamp}.${extension}`;
@@ -173,6 +183,7 @@ export async function exportData(
       format: format.toUpperCase(),
       status: "success",
       user,
+      adminId,
       recordCount: data.length,
     },
   });

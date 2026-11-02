@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const access = await requireApiAccess(request, "invoices");
+  if (access instanceof NextResponse) return access;
   try {
+    const where = workspaceWhere(access.user);
     const [totalInvoices, totalAmount] = await Promise.all([
-      prisma.invoice.count(),
-      prisma.invoice.aggregate({ _sum: { amount: true, total: true } }),
-      prisma.invoice.aggregate({ _sum: { amount: true } }),
+      prisma.invoice.count({ where }),
+      prisma.invoice.aggregate({ where, _sum: { amount: true, total: true } }),
+      prisma.invoice.aggregate({ where, _sum: { amount: true } }),
     ]);
 
     return NextResponse.json({

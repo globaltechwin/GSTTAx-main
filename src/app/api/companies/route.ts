@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
+  const access = await requireApiAccess(request, "companies");
+  if (access instanceof NextResponse) return access;
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
@@ -13,7 +16,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get("sortOrder") || "desc";
     const skip = (page - 1) * pageSize;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { ...workspaceWhere(access.user) };
 
     if (search) {
       where.OR = [
@@ -44,6 +47,11 @@ export async function GET(request: NextRequest) {
         orderBy,
         skip,
         take: pageSize,
+        include: {
+          workspace: {
+            select: { id: true, username: true, firstName: true, lastName: true },
+          },
+        },
       }),
       prisma.company.count({ where }),
     ]);
@@ -56,6 +64,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const access = await requireApiAccess(request, "companies", "create");
+  if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
     const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo } = body;
@@ -66,6 +76,7 @@ export async function POST(request: NextRequest) {
 
     const company = await prisma.company.create({
       data: {
+        adminId: access.user.workspaceId!,
         name,
         gstNo: gstNo || null,
         email: email || null,

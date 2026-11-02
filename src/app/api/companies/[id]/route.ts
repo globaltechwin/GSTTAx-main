@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const access = await requireApiAccess(request, "companies");
+  if (access instanceof NextResponse) return access;
   try {
     const { id } = await params;
-    const company = await prisma.company.findUnique({
-      where: { id: parseInt(id) },
-      include: { invoices: true },
+    const company = await prisma.company.findFirst({
+      where: { id: parseInt(id), ...workspaceWhere(access.user) },
+      include: {
+        invoices: true,
+        workspace: { select: { id: true, username: true, firstName: true, lastName: true } },
+      },
     });
 
     if (!company) {
@@ -21,13 +27,15 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const access = await requireApiAccess(request, "companies", "update");
+  if (access instanceof NextResponse) return access;
   try {
     const { id } = await params;
     const body = await request.json();
     const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo } = body;
 
-    const company = await prisma.company.update({
-      where: { id: parseInt(id) },
+    const result = await prisma.company.updateMany({
+      where: { id: parseInt(id), adminId: access.user.workspaceId },
       data: {
         name,
         gstNo: gstNo || null,
@@ -42,6 +50,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         epfNo: epfNo || null,
       },
     });
+    if (!result.count) return NextResponse.json({ error: "Company not found" }, { status: 404 });
+    const company = await prisma.company.findFirst({
+      where: { id: parseInt(id), adminId: access.user.workspaceId },
+    });
 
     return NextResponse.json(company);
   } catch (err) {
@@ -51,14 +63,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const access = await requireApiAccess(request, "companies", "delete");
+  if (access instanceof NextResponse) return access;
   try {
     const { id } = await params;
-    await prisma.company.delete({
-      where: { id: parseInt(id) },
+    const result = await prisma.company.deleteMany({
+      where: { id: parseInt(id), adminId: access.user.workspaceId },
     });
+    if (!result.count) return NextResponse.json({ error: "Company not found" }, { status: 404 });
 
     return NextResponse.json({ success: true });
   } catch (err) {

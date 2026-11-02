@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -22,6 +23,7 @@ interface SalesRow {
   cgst: number;
   sgst: number;
   total: number;
+  workspace: { id: number; username: string; firstName: string; lastName: string } | null;
 }
 
 interface PurchaseRow {
@@ -37,6 +39,7 @@ interface PurchaseRow {
   cgst: number;
   sgst: number;
   totalAmount: number;
+  workspace: { id: number; username: string; firstName: string; lastName: string } | null;
 }
 
 interface Totals {
@@ -47,16 +50,24 @@ interface Totals {
   total: number;
 }
 
-async function fetchMonthData(startDate: Date, endDate: Date, snoStart: number) {
+async function fetchMonthData(workspace: ReturnType<typeof workspaceWhere>, startDate: Date, endDate: Date, snoStart: number) {
   const [invoices, purchases] = await Promise.all([
     prisma.invoice.findMany({
-      where: { date: { gte: startDate, lte: endDate } },
+      where: { ...workspace, date: { gte: startDate, lte: endDate } },
       orderBy: { date: "asc" },
-      include: { company: true, toCompany: true, items: true },
+      include: {
+        company: true,
+        toCompany: true,
+        items: true,
+        workspace: { select: { id: true, username: true, firstName: true, lastName: true } },
+      },
     }),
     prisma.purchase.findMany({
-      where: { invoiceDate: { gte: startDate, lte: endDate } },
+      where: { ...workspace, invoiceDate: { gte: startDate, lte: endDate } },
       orderBy: { invoiceDate: "asc" },
+      include: {
+        workspace: { select: { id: true, username: true, firstName: true, lastName: true } },
+      },
     }),
   ]);
 
@@ -102,6 +113,7 @@ async function fetchMonthData(startDate: Date, endDate: Date, snoStart: number) 
       gst: inv.billToGstin || inv.toCompany?.gstNo || inv.gst || "",
       placeOfSupply: inv.placeOfSupply || "",
       rate, taxableValue: totalTaxable, igst: totalIgst, cgst: totalCgst, sgst: totalSgst, total,
+      workspace: inv.workspace,
     };
   });
 
@@ -118,6 +130,7 @@ async function fetchMonthData(startDate: Date, endDate: Date, snoStart: number) 
     cgst: Number(p.cgst),
     sgst: Number(p.sgst),
     totalAmount: Number(p.totalAmount),
+    workspace: p.workspace,
   }));
 
   const salesTotals = salesData.reduce<Totals>(
@@ -145,10 +158,10 @@ async function fetchMonthData(startDate: Date, endDate: Date, snoStart: number) 
   return { salesData, purchaseData, salesTotals, purchaseTotals, invoiceCount: invoices.length, purchaseCount: purchases.length };
 }
 
-async function fetchYearlyMonthData(startDate: Date, endDate: Date) {
+async function fetchYearlyMonthData(workspace: ReturnType<typeof workspaceWhere>, startDate: Date, endDate: Date) {
   const [invoices, purchases] = await Promise.all([
-    prisma.invoice.findMany({ where: { date: { gte: startDate, lte: endDate } }, include: { items: true } }),
-    prisma.purchase.findMany({ where: { invoiceDate: { gte: startDate, lte: endDate } } }),
+    prisma.invoice.findMany({ where: { ...workspace, date: { gte: startDate, lte: endDate } }, include: { items: true } }),
+    prisma.purchase.findMany({ where: { ...workspace, invoiceDate: { gte: startDate, lte: endDate } } }),
   ]);
 
   let salesTaxable = 0;
@@ -200,12 +213,15 @@ async function fetchYearlyMonthData(startDate: Date, endDate: Date) {
 }
 
 export async function GET(request: NextRequest) {
+  const access = await requireApiAccess(request, "turnover-report");
+  if (access instanceof NextResponse) return access;
   try {
     const { searchParams } = new URL(request.url);
     const reportType = searchParams.get("type") || "month";
     const month = parseInt(searchParams.get("month") || String(new Date().getMonth() + 1), 10);
     const year = parseInt(searchParams.get("year") || String(new Date().getFullYear()), 10);
     const fyStartYear = parseInt(searchParams.get("fyStartYear") || String(currentFYStartYear()), 10);
+    const workspace = workspaceWhere(access.user);
 
     let allSalesData: SalesRow[] = [];
     let allPurchaseData: PurchaseRow[] = [];
@@ -229,7 +245,7 @@ export async function GET(request: NextRequest) {
       for (const fm of fyMonths) {
         const mStart = new Date(fm.year, fm.month - 1, 1);
         const mEnd = new Date(fm.year, fm.month, 0, 23, 59, 59);
-        const result = await fetchMonthData(mStart, mEnd, snoOffset);
+        const result = await fetchMonthData(workspace, mStart, mEnd, snoOffset);
         snoOffset += result.invoiceCount;
 
         allSalesData.push(...result.salesData);
@@ -248,7 +264,7 @@ export async function GET(request: NextRequest) {
     } else {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0, 23, 59, 59);
-      const result = await fetchMonthData(startDate, endDate, 0);
+      const result = await fetchMonthData(workspace, startDate, endDate, 0);
       allSalesData = result.salesData;
       allPurchaseData = result.purchaseData;
       salesTotals.taxableValue = result.salesTotals.taxableValue;
@@ -268,7 +284,7 @@ export async function GET(request: NextRequest) {
     for (const fm of fyMonths) {
       const mStart = new Date(fm.year, fm.month - 1, 1);
       const mEnd = new Date(fm.year, fm.month, 0, 23, 59, 59);
-      const ym = await fetchYearlyMonthData(mStart, mEnd);
+      const ym = await fetchYearlyMonthData(workspace, mStart, mEnd);
       yearlyData.push({ month: fm.label, ...ym });
     }
 

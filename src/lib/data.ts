@@ -11,6 +11,14 @@ export interface Company {
   esiNo: string;
   address: string;
   epfNo: string;
+  workspace?: WorkspaceSummary | null;
+}
+
+export interface WorkspaceSummary {
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
 }
 
 export const companies: Company[] = [
@@ -66,6 +74,7 @@ export interface ToCompany {
   date: string;
   createdAt?: string;
   updatedAt?: string;
+  workspace?: WorkspaceSummary | null;
 }
 
 export const toCompanies: ToCompany[] = [
@@ -98,6 +107,7 @@ export interface Referral {
   email: string;
   mobile: string;
   date: string;
+  workspace?: WorkspaceSummary | null;
 }
 
 export const referrals: Referral[] = [
@@ -186,6 +196,7 @@ export interface Purchase {
   cgst: number;
   sgst: number;
   totalAmount: number;
+  workspace?: WorkspaceSummary | null;
 }
 
 export interface AppUser {
@@ -199,4 +210,5 @@ export interface AppUser {
   status: string;
   sidebarAccess: string[];
   createdAt: string;
+  admin?: WorkspaceSummary | null;
 }

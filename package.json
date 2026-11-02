@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
+    "test": "node --experimental-strip-types --test src/lib/auth-security.test.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
     "typecheck": "tsc --noEmit"

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   useReactTable,
@@ -13,6 +14,8 @@ import type { ToCompanyFormData } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { ToCompanyForm } from "@/components/to-company/to-company-form";
 import { ToCompanyView } from "@/components/to-company/to-company-view";
+import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
+import { useSession } from "@/components/auth/session-provider";
 import {
   Send,
   Plus,
@@ -52,6 +55,9 @@ type DialogMode =
   | { type: "delete"; company: ToCompany };
 
 export function ToCompanyClient() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
+  const { user } = useSession();
   const [data, setData] = useState<ToCompany[]>([]);
   const [stats, setStats] = useState<ToCompanyStats>({
     totalToCompanies: 0,
@@ -68,11 +74,13 @@ export function ToCompanyClient() {
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const sortField = sorting.length > 0 ? sorting[0].id : "createdAt";
       const sortOrder = sorting.length > 0 ? (sorting[0].desc ? "desc" : "asc") : "desc";
@@ -85,12 +93,12 @@ export function ToCompanyClient() {
         sortOrder,
       });
       const res = await fetch(`/api/to-companies?${params}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.data);
-        setTotal(json.total);
-      }
-    } catch {
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Unable to load to companies");
+      setData(json.data);
+      setTotal(json.total);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Unable to load to companies");
     } finally {
       setLoading(false);
     }
@@ -99,10 +107,12 @@ export function ToCompanyClient() {
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch("/api/to-companies/stats");
-      if (res.ok) {
-        setStats(await res.json());
-      }
-    } catch {}
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Unable to load to-company statistics");
+      setStats(json);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Unable to load to-company statistics");
+    }
   }, []);
 
   useEffect(() => {
@@ -227,6 +237,7 @@ export function ToCompanyClient() {
           </div>
           <div className="min-w-0">
             <p className="text-foreground truncate font-semibold">{info.row.original.name}</p>
+            <WorkspaceOwner workspace={info.row.original.workspace} />
             {info.row.original.vendorCode && (
               <p className="text-muted-foreground truncate text-xs">
                 Vendor: {info.row.original.vendorCode}
@@ -290,6 +301,7 @@ export function ToCompanyClient() {
       id: "actions",
       header: "Option",
       cell: (info) => {
+        if (user.role !== "ADMIN") return null;
         const company = info.row.original;
         return (
           <div className="relative">
@@ -372,12 +384,13 @@ export function ToCompanyClient() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <a href="/dashboard" className="hover:text-foreground transition-colors">
+        <a href={portalBase} className="hover:text-foreground transition-colors">
           Home
         </a>
         <BreadcrumbSep className="size-3.5" />
         <span className="text-foreground font-medium">To Company</span>
       </nav>
+      {loadError && <p className="text-destructive rounded-lg border p-3 text-sm" role="alert">{loadError}</p>}
 
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -405,17 +418,19 @@ export function ToCompanyClient() {
             <Filter className="size-4" />
             Filters
           </button>
-          <button className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
-            <Download className="size-4" />
-            Export
-          </button>
-          <button
+          {user.role === "ADMIN" && (
+            <button className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
+              <Download className="size-4" />
+              Export
+            </button>
+          )}
+          {user.role === "ADMIN" && <button
             onClick={() => setDialog({ type: "add" })}
             className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
           >
             <Plus className="size-4" />
             New To Company
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -614,7 +629,7 @@ export function ToCompanyClient() {
                             : "Get started by adding your first vendor company"}
                         </p>
                       </div>
-                      {!globalFilter && (
+                      {user.role === "ADMIN" && !globalFilter && (
                         <button
                           onClick={() => setDialog({ type: "add" })}
                           className="btn-gradient text-primary-foreground mt-2 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"

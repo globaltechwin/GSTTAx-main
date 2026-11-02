@@ -1,7 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
+import { calculateInvoiceAmounts } from "@/lib/invoice-math";
 import { prisma } from "@/lib/db";
+import { invoiceSchema } from "@/lib/validations";
+
+function optionalId(value: unknown): number | null | undefined {
+  if (value === null || value === undefined || value === "") return null;
+  const id = typeof value === "number" ? value : Number(value);
+  return Number.isSafeInteger(id) && id > 0 ? id : undefined;
+}
 
 export async function GET(request: NextRequest) {
+  const access = await requireApiAccess(request, "invoices");
+  if (access instanceof NextResponse) return access;
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
@@ -11,7 +22,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get("sortOrder") || "desc";
     const skip = (page - 1) * pageSize;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { ...workspaceWhere(access.user) };
 
     if (search) {
       where.OR = [
@@ -87,6 +98,9 @@ export async function GET(request: NextRequest) {
             },
           },
           items: true,
+          workspace: {
+            select: { id: true, username: true, firstName: true, lastName: true },
+          },
         },
       }),
       prisma.invoice.count({ where }),
@@ -100,25 +114,29 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const access = await requireApiAccess(request, "invoices", "create");
+  if (access instanceof NextResponse) return access;
   try {
-    const body = await request.json();
+    const parsed = invoiceSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid invoice data", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
     const {
-      orderId,
       companyId,
       toCompanyId,
       billToCompanyId,
       shipToCompanyId,
       email,
       gst,
-      amount,
-      total,
       date,
       taxType,
       cgstRate,
       sgstRate,
       igstRate,
       reverseCharge,
-      invoiceNo,
       challanNo,
       transportMode,
       vehicleNo,
@@ -146,85 +164,145 @@ export async function POST(request: NextRequest) {
       logoUrl,
       phone,
       items,
-    } = body;
+    } = parsed.data;
 
-    if (!orderId || !date) {
-      return NextResponse.json({ error: "Order ID and date are required" }, { status: 400 });
+    const workspaceId = access.user.workspaceId!;
+    const companyRef = optionalId(companyId);
+    const toCompanyRef = optionalId(toCompanyId);
+    const rawBillToRef = optionalId(billToCompanyId);
+    const rawShipToRef = optionalId(shipToCompanyId);
+    const billToRef = rawBillToRef ?? toCompanyRef;
+    const shipToRef = rawShipToRef ?? toCompanyRef;
+    if (
+      companyRef === undefined ||
+      toCompanyRef === undefined ||
+      rawBillToRef === undefined ||
+      rawShipToRef === undefined
+    ) {
+      return NextResponse.json({ error: "Invalid company selection" }, { status: 400 });
     }
 
-    const invoice = await prisma.invoice.create({
-      data: {
-        orderId,
-        ...(companyId ? { company: { connect: { id: companyId } } } : {}),
-        ...(toCompanyId ? { toCompany: { connect: { id: toCompanyId } } } : {}),
-        ...(billToCompanyId || toCompanyId
-          ? { billToCompany: { connect: { id: billToCompanyId || toCompanyId } } }
-          : {}),
-        ...(shipToCompanyId || toCompanyId
-          ? { shipToCompany: { connect: { id: shipToCompanyId || toCompanyId } } }
-          : {}),
-        email: email || null,
-        gst: gst || null,
-        amount: amount || null,
-        total: total || null,
-        date: new Date(date),
-        taxType: taxType || "CGST_SGST",
-        cgstRate: cgstRate || 0,
-        sgstRate: sgstRate || 0,
-        igstRate: igstRate || 0,
-        reverseCharge: reverseCharge || false,
-        invoiceNo: invoiceNo || null,
-        challanNo: challanNo || null,
-        transportMode: transportMode || null,
-        vehicleNo: vehicleNo || null,
-        dateOfSupply: dateOfSupply ? new Date(dateOfSupply) : null,
-        placeOfSupply: placeOfSupply || null,
-        stateCode: stateCode || null,
-        bankHolderName: bankHolderName || null,
-        bankAccountNumber: bankAccountNumber || null,
-        bankIfscCode: bankIfscCode || null,
-        bankName: bankName || null,
-        bankBranchName: bankBranchName || null,
-        billToName: billToName || null,
-        billToAddress: billToAddress || null,
-        billToGstin: billToGstin || null,
-        billToEmail: billToEmail || null,
-        billToState: billToState || null,
-        billToStateCode: billToStateCode || null,
-        shipToName: shipToName || null,
-        shipToAddress: shipToAddress || null,
-        shipToGstin: shipToGstin || null,
-        shipToEmail: shipToEmail || null,
-        shipToState: shipToState || null,
-        shipToStateCode: shipToStateCode || null,
-        termsAndConditions: termsAndConditions || null,
-        logoUrl: logoUrl || null,
-        phone: phone || null,
-        items: {
-          create:
-            items?.map((item: Record<string, unknown>) => ({
-              description: (item.description as string) || null,
-              hsn: (item.hsn as string) || null,
-              sac: (item.sac as string) || null,
-              quantity: (item.quantity as number) || 0,
-              unit: (item.unit as string) || (item.per as string) || "Pcs",
-              price: (item.price as number) || 0,
-              per: (item.per as string) || "Pcs",
-              amount: (item.amount as number) || 0,
-              gstType: (item.gstType as string) || null,
-              igstRate: item.igstRate != null ? (item.igstRate as number) : null,
-              cgstRate: item.cgstRate != null ? (item.cgstRate as number) : null,
-              sgstRate: item.sgstRate != null ? (item.sgstRate as number) : null,
-            })) || [],
-        },
-      },
-      include: {
-        company: true,
-        toCompany: true,
-        billToCompany: true,
-        shipToCompany: true,
-        items: true,
-      },
+    const refsAreOwned = await Promise.all([
+      companyRef
+        ? prisma.company.count({ where: { id: companyRef, adminId: workspaceId } })
+        : Promise.resolve(1),
+      ...[toCompanyRef, billToRef, shipToRef].map((id) =>
+        id ? prisma.toCompany.count({ where: { id, adminId: workspaceId } }) : Promise.resolve(1)
+      ),
+    ]);
+    if (refsAreOwned.some((count) => count !== 1)) {
+      return NextResponse.json({ error: "Selected company is unavailable" }, { status: 400 });
+    }
+
+    const rate = (value: unknown, key: string) => {
+      const parsed = Number(value ?? 0);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+        throw new Error(`${key} must be between 0 and 100`);
+      }
+      return parsed;
+    };
+    let financials;
+    try {
+      financials = calculateInvoiceAmounts(items, {
+        taxType: typeof taxType === "string" ? taxType : "CGST_SGST",
+        cgstRate: rate(cgstRate, "CGST rate"),
+        sgstRate: rate(sgstRate, "SGST rate"),
+        igstRate: rate(igstRate, "IGST rate"),
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Invalid invoice items" },
+        { status: 400 }
+      );
+    }
+
+    const createInvoice = () =>
+      prisma.$transaction(async (transaction) => {
+        const sequence = await transaction.invoiceSequence.findUnique({
+          where: { adminId: workspaceId },
+          select: { currentValue: true },
+        });
+        if (!sequence) {
+          const existingNumbers = await transaction.invoice.findMany({
+            where: { adminId: workspaceId },
+            select: { invoiceNo: true },
+          });
+          const maximum = existingNumbers.reduce((value, record) => {
+            const parsedNumber = Number.parseInt(record.invoiceNo ?? "", 10);
+            return Number.isSafeInteger(parsedNumber) ? Math.max(value, parsedNumber) : value;
+          }, 0);
+          await transaction.invoiceSequence.create({
+            data: { adminId: workspaceId, currentValue: maximum },
+          });
+        }
+        const allocated = await transaction.invoiceSequence.update({
+          where: { adminId: workspaceId },
+          data: { currentValue: { increment: 1 } },
+          select: { currentValue: true },
+        });
+        const allocatedNumber = String(allocated.currentValue);
+
+        return transaction.invoice.create({
+          data: {
+            workspace: { connect: { id: workspaceId } },
+            orderId: allocatedNumber,
+            ...(companyRef ? { company: { connect: { id: companyRef } } } : {}),
+            ...(toCompanyRef ? { toCompany: { connect: { id: toCompanyRef } } } : {}),
+            ...(billToRef ? { billToCompany: { connect: { id: billToRef } } } : {}),
+            ...(shipToRef ? { shipToCompany: { connect: { id: shipToRef } } } : {}),
+            email: email || null,
+            gst: gst || null,
+            amount: financials.amount,
+            total: financials.total,
+            date: new Date(date),
+            taxType: taxType || "CGST_SGST",
+            cgstRate: cgstRate || 0,
+            sgstRate: sgstRate || 0,
+            igstRate: igstRate || 0,
+            reverseCharge: reverseCharge || false,
+            invoiceNo: allocatedNumber,
+            challanNo: challanNo || null,
+            transportMode: transportMode || null,
+            vehicleNo: vehicleNo || null,
+            dateOfSupply: dateOfSupply ? new Date(dateOfSupply) : null,
+            placeOfSupply: placeOfSupply || null,
+            stateCode: stateCode || null,
+            bankHolderName: bankHolderName || null,
+            bankAccountNumber: bankAccountNumber || null,
+            bankIfscCode: bankIfscCode || null,
+            bankName: bankName || null,
+            bankBranchName: bankBranchName || null,
+            billToName: billToName || null,
+            billToAddress: billToAddress || null,
+            billToGstin: billToGstin || null,
+            billToEmail: billToEmail || null,
+            billToState: billToState || null,
+            billToStateCode: billToStateCode || null,
+            shipToName: shipToName || null,
+            shipToAddress: shipToAddress || null,
+            shipToGstin: shipToGstin || null,
+            shipToEmail: shipToEmail || null,
+            shipToState: shipToState || null,
+            shipToStateCode: shipToStateCode || null,
+            termsAndConditions: termsAndConditions || null,
+            logoUrl: logoUrl || null,
+            phone: phone || null,
+            items: { create: financials.items },
+          },
+          include: {
+            company: true,
+            toCompany: true,
+            billToCompany: true,
+            shipToCompany: true,
+            items: true,
+          },
+        });
+      });
+    const invoice = await createInvoice().catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+        return createInvoice();
+      }
+      throw error;
     });
 
     return NextResponse.json(invoice, { status: 201 });

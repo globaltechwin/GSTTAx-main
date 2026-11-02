@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
+  const access = await requireApiAccess(request, "invoices");
+  if (access instanceof NextResponse) return access;
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { ...workspaceWhere(access.user) };
     if (search) {
       where.OR = [
         { orderId: { contains: search } },
@@ -36,6 +39,9 @@ export async function GET(request: NextRequest) {
         billToAddress: true,
         company: { select: { name: true } },
         toCompany: { select: { name: true, gstNo: true, state: true } },
+        workspace: {
+          select: { id: true, username: true, firstName: true, lastName: true },
+        },
       },
     });
 

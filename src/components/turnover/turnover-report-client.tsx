@@ -1,8 +1,11 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import * as XLSX from "xlsx-js-style";
 import { BarChart3, Download, ChevronRight, Loader2 } from "lucide-react";
+import { useSession } from "@/components/auth/session-provider";
+import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -13,9 +16,11 @@ function fmt(n: number) { return Math.round(n).toLocaleString("en-IN"); }
 function currentFYStart() { return new Date().getMonth() >= 3 ? currentYear : currentYear - 1; }
 
 type S = XLSX.CellStyle;
-interface SalesRow { sno: number; invoiceDate: string; invoiceNo: string; partyName: string; gst: string; placeOfSupply: string; rate: number; taxableValue: number; igst: number; cgst: number; sgst: number; total: number; }
-interface PurchaseRow { sno: number; gstNo: string; partyName: string; invoiceNo: string; invoiceDate: string; state: string; rate: number; taxableValue: number; igst: number; cgst: number; sgst: number; totalAmount: number; }
+interface Workspace { id: number; username: string; firstName: string; lastName: string; }
+interface SalesRow { sno: number; invoiceDate: string; invoiceNo: string; partyName: string; gst: string; placeOfSupply: string; rate: number; taxableValue: number; igst: number; cgst: number; sgst: number; total: number; workspace: Workspace | null; }
+interface PurchaseRow { sno: number; gstNo: string; partyName: string; invoiceNo: string; invoiceDate: string; state: string; rate: number; taxableValue: number; igst: number; cgst: number; sgst: number; totalAmount: number; workspace: Workspace | null; }
 interface YearlyRow { month: string; sales: { taxableValue: number; igst: number; cgst: number; sgst: number; totalTax: number }; purchase: { taxableValue: number; igst: number; cgst: number; sgst: number; totalTax: number }; availInput: { igst: number; cgst: number; sgst: number; total: number }; }
+interface ReportResponse { reportLabel: string; salesData: SalesRow[]; purchaseData: PurchaseRow[]; }
 
 function c(v: string | number, s?: S): XLSX.CellObject { return { t: typeof v === "number" ? "n" : "s", v, s: s || {} } as XLSX.CellObject; }
 
@@ -36,21 +41,31 @@ const sThickR: S = { font: { bold: true }, border: thickB, alignment: { horizont
 const sThickC: S = { font: { bold: true }, border: thickB, alignment: { horizontal: "center" } };
 
 export function TurnoverReportClient() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
+  const { user } = useSession();
   const [reportType, setReportType] = useState<"month" | "fy">("month");
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(currentYear);
   const [fyStartYear, setFyStartYear] = useState(currentFYStart());
   const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState<ReportResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
     setLoading(true);
+    setError(null);
+    setReport(null);
     try {
       const params = new URLSearchParams({ type: reportType, month: String(month), year: String(year), fyStartYear: String(fyStartYear) });
       const res = await fetch(`/api/turnover-report?${params}`);
-      if (!res.ok) throw new Error("Failed");
       const data = await res.json();
-      generateExcel(data);
-    } catch { alert("Failed to generate report."); }
+      if (!res.ok) throw new Error(data.error || "Failed to generate report");
+      if (user.role === "SUPERADMIN") setReport(data as ReportResponse);
+      else generateExcel(data);
+    } catch (reportError) {
+      setError(reportError instanceof Error ? reportError.message : "Failed to generate report");
+    }
     finally { setLoading(false); }
   };
 
@@ -231,7 +246,7 @@ export function TurnoverReportClient() {
   return (
     <div className="space-y-6">
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <a href="/dashboard" className="hover:text-foreground transition-colors">Home</a>
+        <a href={portalBase} className="hover:text-foreground transition-colors">Home</a>
         <ChevronRight className="size-3.5" />
         <span className="text-foreground font-medium">Turnover Report</span>
       </nav>
@@ -293,7 +308,7 @@ export function TurnoverReportClient() {
 
           <div className="flex items-center gap-4">
             <button onClick={handleGenerate} disabled={loading} className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold shadow-sm transition-all disabled:opacity-50">
-              {loading ? <><Loader2 className="size-4 animate-spin" />Generating...</> : <><Download className="size-4" />Generate &amp; Download Report</>}
+              {loading ? <><Loader2 className="size-4 animate-spin" />Generating...</> : user.role === "SUPERADMIN" ? <><BarChart3 className="size-4" />Load Report</> : <><Download className="size-4" />Generate &amp; Download Report</>}
             </button>
             <span className="text-muted-foreground text-sm">
               {reportType === "month" ? <>Report for <span className="text-foreground font-semibold">{MONTHS[month - 1]} {year}</span></> : <>Report for <span className="text-foreground font-semibold">FY {fyStartYear}-{String(fyStartYear + 1).slice(2)}</span></>}
@@ -301,6 +316,53 @@ export function TurnoverReportClient() {
           </div>
         </div>
       </div>
+
+      {error && <p className="text-destructive rounded-lg border p-3 text-sm" role="alert">{error}</p>}
+      {report && (
+        <div className="space-y-5">
+          <h2 className="text-foreground text-lg font-semibold">{report.reportLabel}</h2>
+          {[
+            { title: "Sales", rows: report.salesData, amount: (row: SalesRow) => row.total },
+            { title: "Purchases", rows: report.purchaseData, amount: (row: PurchaseRow) => row.totalAmount },
+          ].map(({ title, rows, amount }) => (
+            <section key={title} className="border-border/60 bg-card overflow-hidden rounded-xl border">
+              <h3 className="border-border/60 border-b p-4 font-semibold">{title}</h3>
+              {rows.length === 0 ? (
+                <p className="text-muted-foreground p-4 text-sm">No {title.toLowerCase()} for this period.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-muted/30 text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Date</th>
+                        <th className="px-4 py-3 font-medium">Invoice</th>
+                        <th className="px-4 py-3 font-medium">Party</th>
+                        <th className="px-4 py-3 font-medium">Workspace</th>
+                        <th className="px-4 py-3 text-right font-medium">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-border/60 divide-y">
+                      {rows.map((row, index) => (
+                        <tr key={`${row.invoiceNo}-${index}`}>
+                          <td className="text-muted-foreground px-4 py-3">{new Date(row.invoiceDate).toLocaleDateString()}</td>
+                          <td className="text-foreground px-4 py-3">{row.invoiceNo}</td>
+                          <td className="text-foreground px-4 py-3">{row.partyName}</td>
+                          <td className="px-4 py-3">
+                            <WorkspaceOwner workspace={row.workspace} />
+                          </td>
+                          <td className="text-foreground px-4 py-3 text-right">
+                            ₹{amount(row).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
 
       <div className="border-border/60 bg-card rounded-2xl border p-6 shadow-sm">
         <h3 className="text-foreground mb-3 text-sm font-semibold">Report Contents</h3>

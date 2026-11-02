@@ -1,21 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
   flexRender,
   type SortingState,
   type ColumnDef,
+  type PaginationState,
 } from "@tanstack/react-table";
-import { referrals as initialReferrals, type Referral } from "@/lib/data";
+import type { Referral } from "@/lib/data";
 import type { ReferralFormData } from "@/lib/validations";
 import { cn } from "@/lib/utils";
+import { useSession } from "@/components/auth/session-provider";
 import { ReferralForm } from "@/components/referral/referral-form";
 import { ReferralView } from "@/components/referral/referral-view";
+import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
 import {
   Users,
   Plus,
@@ -50,47 +51,115 @@ function formatDate(dateStr: string): string {
 }
 
 export function ReferralClient() {
-  const [data, setData] = useState<Referral[]>(initialReferrals);
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
+  const { user } = useSession();
+  const canManage = user.role === "ADMIN";
+  const [data, setData] = useState<Referral[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
-  const [pageSize, setPageSize] = useState(10);
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 10 });
   const [dialog, setDialog] = useState<DialogMode>(null);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
+  const [refreshToken, setRefreshToken] = useState(0);
 
-  const handleAdd = (formData: ReferralFormData) => {
-    const newReferral: Referral = {
-      id: Math.max(0, ...data.map((r) => r.id)) + 1,
-      name: formData.name,
-      email: formData.email ?? "",
-      mobile: formData.mobile ?? "",
-      date: formData.date,
-    };
-    setData((prev) => [...prev, newReferral]);
-    setDialog(null);
+  const loadReferrals = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({
+        page: String(pagination.pageIndex + 1),
+        pageSize: String(pagination.pageSize),
+        sortBy: sorting[0]?.id || "date",
+        sortOrder: sorting[0]?.desc === false ? "asc" : "desc",
+      });
+      if (globalFilter.trim()) params.set("search", globalFilter.trim());
+      const response = await fetch(`/api/referrals?${params}`, { cache: "no-store" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to load referrals");
+      setData(
+        (result.data as Array<Referral & { date: string }>).map((item) => ({
+          ...item,
+          date: item.date.slice(0, 10),
+        }))
+      );
+      setTotal(result.total);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load referrals");
+    } finally {
+      setLoading(false);
+    }
+  }, [globalFilter, pagination.pageIndex, pagination.pageSize, sorting]);
+
+  useEffect(() => {
+    void loadReferrals();
+  }, [loadReferrals, refreshToken]);
+
+  const handleAdd = async (formData: ReferralFormData) => {
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to create referral");
+      setDialog(null);
+      setPagination((current) => ({ ...current, pageIndex: 0 }));
+      setRefreshToken((current) => current + 1);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to create referral");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleEdit = (formData: ReferralFormData) => {
+  const handleEdit = async (formData: ReferralFormData) => {
     if (dialog?.type !== "edit") return;
-    setData((prev) =>
-      prev.map((r) =>
-        r.id === dialog.referral.id
-          ? {
-              ...r,
-              name: formData.name,
-              email: formData.email ?? "",
-              mobile: formData.mobile ?? "",
-              date: formData.date,
-            }
-          : r
-      )
-    );
-    setDialog(null);
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/referrals/${dialog.referral.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to update referral");
+      setDialog(null);
+      setRefreshToken((current) => current + 1);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to update referral");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (dialog?.type !== "delete") return;
-    setData((prev) => prev.filter((r) => r.id !== dialog.referral.id));
-    setDialog(null);
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/referrals/${dialog.referral.id}`, { method: "DELETE" });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to delete referral");
+      setDialog(null);
+      if (data.length === 1 && pagination.pageIndex > 0) {
+        setPagination((current) => ({ ...current, pageIndex: current.pageIndex - 1 }));
+      } else {
+        setRefreshToken((current) => current + 1);
+      }
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete referral");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const columns: ColumnDef<Referral>[] = [
@@ -130,7 +199,10 @@ export function ReferralClient() {
       accessorKey: "name",
       header: "Referral Name",
       cell: (info) => (
-        <span className="text-foreground font-semibold">{info.row.original.name}</span>
+        <span className="text-foreground font-semibold">
+          {info.row.original.name}
+          <WorkspaceOwner workspace={info.row.original.workspace} />
+        </span>
       ),
     },
     {
@@ -173,14 +245,16 @@ export function ReferralClient() {
       header: "Option",
       cell: (info) => (
         <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setDialog({ type: "edit", referral: info.row.original })}
-            className="inline-flex items-center gap-1 rounded-lg bg-blue-500/10 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-500/20"
-            title="Edit referral"
-          >
-            <Pencil className="size-3" />
-            Edit
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setDialog({ type: "edit", referral: info.row.original })}
+              className="inline-flex items-center gap-1 rounded-lg bg-blue-500/10 px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-500/20"
+              title="Edit referral"
+            >
+              <Pencil className="size-3" />
+              Edit
+            </button>
+          )}
           <button
             onClick={() => setDialog({ type: "view", referral: info.row.original })}
             className="inline-flex items-center gap-1 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-500/20"
@@ -189,14 +263,16 @@ export function ReferralClient() {
             <Eye className="size-3" />
             View
           </button>
-          <button
-            onClick={() => setDialog({ type: "delete", referral: info.row.original })}
-            className="inline-flex items-center gap-1 rounded-lg bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/20"
-            title="Delete referral"
-          >
-            <Trash2 className="size-3" />
-            Delete
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setDialog({ type: "delete", referral: info.row.original })}
+              className="inline-flex items-center gap-1 rounded-lg bg-red-500/10 px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-500/20"
+              title="Delete referral"
+            >
+              <Trash2 className="size-3" />
+              Delete
+            </button>
+          )}
         </div>
       ),
       enableSorting: false,
@@ -206,27 +282,29 @@ export function ReferralClient() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, globalFilter, pagination: { pageIndex: 0, pageSize }, rowSelection },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    state: { sorting, globalFilter, pagination, rowSelection },
+    onSortingChange: (updater) => {
+      setSorting(updater);
+      setPagination((current) => ({ ...current, pageIndex: 0 }));
+    },
+    onGlobalFilterChange: (updater) => {
+      setGlobalFilter(updater);
+      setPagination((current) => ({ ...current, pageIndex: 0 }));
+    },
     onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onPaginationChange: (updater) => {
-      if (typeof updater === "function") {
-        const newState = updater({ pageIndex: 0, pageSize });
-        setPageSize(newState.pageSize);
-      }
-    },
+    manualSorting: true,
+    manualPagination: true,
+    manualFiltering: true,
+    rowCount: total,
+    onPaginationChange: setPagination,
   });
 
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <a href="/dashboard" className="hover:text-foreground transition-colors">
+        <a href={portalBase} className="hover:text-foreground transition-colors">
           Dashboard
         </a>
         <BreadcrumbSep className="size-3.5" />
@@ -245,7 +323,7 @@ export function ReferralClient() {
                 Referral Management
               </h1>
               <span className="bg-primary/10 text-primary inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold">
-                {data.length} total
+                {total} total
               </span>
             </div>
             <p className="text-muted-foreground mt-0.5 text-sm">
@@ -254,13 +332,15 @@ export function ReferralClient() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setDialog({ type: "add" })}
-            className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
-          >
-            <Plus className="size-4" />
-            Add Referral
-          </button>
+          {canManage && (
+            <button
+              onClick={() => setDialog({ type: "add" })}
+              className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
+            >
+              <Plus className="size-4" />
+              Add Referral
+            </button>
+          )}
         </div>
       </div>
 
@@ -271,8 +351,8 @@ export function ReferralClient() {
           <div className="flex items-center gap-3">
             <span className="text-muted-foreground text-sm">Show</span>
             <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
+              value={pagination.pageSize}
+              onChange={(e) => setPagination({ pageIndex: 0, pageSize: Number(e.target.value) })}
               className="border-border/60 bg-card focus:ring-primary/20 h-9 rounded-lg border px-3 text-sm font-medium focus:ring-2 focus:outline-none"
             >
               <option value={10}>10</option>
@@ -306,6 +386,15 @@ export function ReferralClient() {
             )}
           </div>
         </div>
+
+        {error && (
+          <div
+            className="text-destructive border-destructive/20 bg-destructive/5 border-b px-5 py-3 text-sm"
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto">
@@ -346,7 +435,16 @@ export function ReferralClient() {
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="text-muted-foreground px-5 py-16 text-center"
+                  >
+                    Loading referrals...
+                  </td>
+                </tr>
+              ) : table.getRowModel().rows.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="px-5 py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -403,22 +501,13 @@ export function ReferralClient() {
           <p className="text-muted-foreground text-sm">
             Showing{" "}
             <span className="text-foreground font-medium">
-              {table.getFilteredRowModel().rows.length === 0
-                ? 0
-                : table.getState().pagination.pageIndex * pageSize + 1}
+              {total === 0 ? 0 : table.getState().pagination.pageIndex * pagination.pageSize + 1}
             </span>{" "}
             to{" "}
             <span className="text-foreground font-medium">
-              {Math.min(
-                (table.getState().pagination.pageIndex + 1) * pageSize,
-                table.getFilteredRowModel().rows.length
-              )}
+              {Math.min((table.getState().pagination.pageIndex + 1) * pagination.pageSize, total)}
             </span>{" "}
-            of{" "}
-            <span className="text-foreground font-medium">
-              {table.getFilteredRowModel().rows.length}
-            </span>{" "}
-            entries
+            of <span className="text-foreground font-medium">{total}</span> entries
             {globalFilter && (
               <span className="text-muted-foreground"> (filtered from {data.length} total)</span>
             )}
@@ -498,13 +587,18 @@ export function ReferralClient() {
             </div>
 
             {dialog.type === "add" && (
-              <ReferralForm onSubmit={handleAdd} onCancel={() => setDialog(null)} />
+              <ReferralForm
+                onSubmit={handleAdd}
+                onCancel={() => setDialog(null)}
+                isLoading={saving}
+              />
             )}
             {dialog.type === "edit" && (
               <ReferralForm
                 referral={dialog.referral}
                 onSubmit={handleEdit}
                 onCancel={() => setDialog(null)}
+                isLoading={saving}
               />
             )}
             {dialog.type === "view" && (
@@ -529,6 +623,7 @@ export function ReferralClient() {
                   </button>
                   <button
                     onClick={handleDelete}
+                    disabled={saving}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-red-700"
                   >
                     <Trash2 className="size-4" />

@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const access = await requireApiAccess(request, "invoices");
+  if (access instanceof NextResponse) return access;
   try {
+    const workspace = workspaceWhere(access.user);
     const [companies, toCompanies, referrals] = await Promise.all([
       prisma.company.findMany({
+        where: workspace,
         select: {
           id: true,
           name: true,
@@ -25,6 +30,7 @@ export async function GET() {
         orderBy: { name: "asc" },
       }),
       prisma.toCompany.findMany({
+        where: workspace,
         select: {
           id: true,
           name: true,
@@ -36,7 +42,11 @@ export async function GET() {
         },
         orderBy: { name: "asc" },
       }),
-      prisma.referral.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      prisma.referral.findMany({
+        where: workspace,
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
+      }),
     ]);
 
     return NextResponse.json({ companies, toCompanies, referrals });

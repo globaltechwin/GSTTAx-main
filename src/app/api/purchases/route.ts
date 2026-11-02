@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { purchaseSchema } from "@/lib/validations";
+
+function decimalAmount(value: number): number {
+  return Math.round(value * 100);
+}
 
 export async function GET(request: NextRequest) {
+  const access = await requireApiAccess(request, "purchases");
+  if (access instanceof NextResponse) return access;
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
@@ -11,7 +19,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get("sortOrder") || "desc";
     const skip = (page - 1) * pageSize;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { ...workspaceWhere(access.user) };
 
     if (search) {
       where.OR = [
@@ -27,7 +35,17 @@ export async function GET(request: NextRequest) {
     const orderBy = { [actualSortBy]: sortOrder === "asc" ? ("asc" as const) : ("desc" as const) };
 
     const [data, total] = await Promise.all([
-      prisma.purchase.findMany({ where, orderBy, skip, take: pageSize }),
+      prisma.purchase.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          workspace: {
+            select: { id: true, username: true, firstName: true, lastName: true },
+          },
+        },
+      }),
       prisma.purchase.count({ where }),
     ]);
 
@@ -39,16 +57,30 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const access = await requireApiAccess(request, "purchases", "create");
+  if (access instanceof NextResponse) return access;
   try {
-    const body = await request.json();
-    const { gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst, totalAmount } = body;
-
-    if (!partyName || !invoiceNo || !invoiceDate) {
-      return NextResponse.json({ error: "Party name, invoice number, and invoice date are required" }, { status: 400 });
+    const parsed = purchaseSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid purchase data", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    const { gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst } =
+      parsed.data;
+    if (Number.isNaN(new Date(invoiceDate).getTime())) {
+      return NextResponse.json({ error: "Invalid purchase date" }, { status: 400 });
+    }
+    const taxableCents = decimalAmount(taxableValue);
+    const taxCents = decimalAmount(igst ?? 0) + decimalAmount(cgst ?? 0) + decimalAmount(sgst ?? 0);
+    if (!Number.isSafeInteger(taxableCents + taxCents)) {
+      return NextResponse.json({ error: "Purchase total is out of range" }, { status: 400 });
     }
 
     const purchase = await prisma.purchase.create({
       data: {
+        adminId: access.user.workspaceId!,
         gstNo: gstNo || null,
         partyName,
         invoiceNo,
@@ -59,7 +91,7 @@ export async function POST(request: NextRequest) {
         igst: igst ?? 0,
         cgst: cgst ?? 0,
         sgst: sgst ?? 0,
-        totalAmount: totalAmount ?? 0,
+        totalAmount: (taxableCents + taxCents) / 100,
       },
     });
 

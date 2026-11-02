@@ -1,11 +1,11 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
   ArrowLeftRight,
   Upload,
   Download,
-  Database,
   FileText,
   HardDrive,
   Clock,
@@ -21,7 +21,6 @@ import {
   Info,
   FileSpreadsheet,
   FileJson,
-  FileCode,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -52,7 +51,6 @@ interface HistoryRecord {
 }
 
 const modules = [
-  { id: "database", label: "Full Database", icon: Database },
   { id: "companies", label: "Companies", icon: FileText },
   { id: "to-companies", label: "To Companies", icon: FileText },
   { id: "invoices", label: "Invoices", icon: FileText },
@@ -60,14 +58,6 @@ const modules = [
 ];
 
 const exportFormats = [
-  {
-    id: "sql",
-    label: "SQL",
-    icon: FileCode,
-    color: "text-blue-600",
-    bg: "bg-blue-500/10",
-    desc: "Database dump file",
-  },
   {
     id: "csv",
     label: "CSV",
@@ -102,14 +92,15 @@ function formatBytes(kb: string): string {
 }
 
 export function ImportExportClient() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
   // Import state
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importDragOver, setImportDragOver] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState<"idle" | "uploading" | "success" | "error">(
     "idle"
   );
-  const [importModule, setImportModule] = useState("database");
+  const [importModule, setImportModule] = useState("companies");
   const [importNote, setImportNote] = useState("");
   const [importResult, setImportResult] = useState<{
     imported: number;
@@ -120,10 +111,9 @@ export function ImportExportClient() {
 
   // Export state
   const [exportFormat, setExportFormat] = useState("csv");
-  const [exportModule, setExportModule] = useState("database");
+  const [exportModule, setExportModule] = useState("companies");
   const [exportDateFrom, setExportDateFrom] = useState("");
   const [exportDateTo, setExportDateTo] = useState("");
-  const [exportProgress, setExportProgress] = useState(0);
   const [exportStatus, setExportStatus] = useState<"idle" | "exporting" | "success" | "error">(
     "idle"
   );
@@ -131,7 +121,7 @@ export function ImportExportClient() {
 
   // Backup state
   const [backupFormat, setBackupFormat] = useState("json");
-  const [backupModule, setBackupModule] = useState("database");
+  const [backupModule, setBackupModule] = useState("companies");
   const [backupStatus, setBackupStatus] = useState<"idle" | "backing-up" | "success" | "error">(
     "idle"
   );
@@ -235,10 +225,10 @@ export function ImportExportClient() {
   }, []);
 
   const validateAndSetFile = (file: File) => {
-    const validTypes = [".sql", ".csv", ".xlsx", ".xls", ".json"];
+    const validTypes = [".csv", ".xlsx", ".xls", ".json"];
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
     if (!validTypes.includes(ext)) {
-      setImportNote("Invalid file type. Please upload a SQL, CSV, Excel, or JSON file.");
+      setImportNote("Invalid file type. Please upload a CSV, Excel, or JSON file.");
       setImportStatus("error");
       return;
     }
@@ -256,32 +246,23 @@ export function ImportExportClient() {
   const handleImportSubmit = async () => {
     if (!importFile) return;
     setImportStatus("uploading");
-    setImportProgress(0);
     setImportResult(null);
-
-    const progressInterval = setInterval(() => {
-      setImportProgress((prev) => Math.min(prev + Math.random() * 10 + 2, 90));
-    }, 300);
 
     try {
       const formData = new FormData();
       formData.append("file", importFile);
       formData.append("module", importModule);
-      formData.append("user", "admin");
 
       const res = await fetch("/api/import", { method: "POST", body: formData });
-      clearInterval(progressInterval);
 
       if (!res.ok) {
         const err = await res.json();
         setImportStatus("error");
         setImportNote(err.error || "Import failed");
-        setImportProgress(0);
         return;
       }
 
       const result = await res.json();
-      setImportProgress(100);
       setImportStatus("success");
       setImportResult({
         imported: result.imported,
@@ -294,21 +275,14 @@ export function ImportExportClient() {
       setImportFile(null);
       fetchHistory();
     } catch {
-      clearInterval(progressInterval);
       setImportStatus("error");
       setImportNote("Network error. Please check your connection and try again.");
-      setImportProgress(0);
     }
   };
 
   const handleExport = async () => {
     setExportStatus("exporting");
-    setExportProgress(0);
     setExportNote("");
-
-    const progressInterval = setInterval(() => {
-      setExportProgress((prev) => Math.min(prev + Math.random() * 15 + 5, 90));
-    }, 200);
 
     try {
       const res = await fetch("/api/export", {
@@ -319,17 +293,13 @@ export function ImportExportClient() {
           format: exportFormat,
           dateFrom: exportDateFrom || undefined,
           dateTo: exportDateTo || undefined,
-          user: "admin",
         }),
       });
-
-      clearInterval(progressInterval);
 
       if (!res.ok) {
         const err = await res.json();
         setExportStatus("error");
         setExportNote(err.error || "Export failed");
-        setExportProgress(0);
         return;
       }
 
@@ -348,15 +318,12 @@ export function ImportExportClient() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      setExportProgress(100);
       setExportStatus("success");
       setExportNote(`Export completed successfully. ${fileName} downloaded.`);
       fetchHistory();
     } catch {
-      clearInterval(progressInterval);
       setExportStatus("error");
       setExportNote("Network error during export.");
-      setExportProgress(0);
     }
   };
 
@@ -367,7 +334,7 @@ export function ImportExportClient() {
       const res = await fetch("/api/backup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ module: backupModule, format: backupFormat, user: "admin" }),
+        body: JSON.stringify({ module: backupModule, format: backupFormat }),
       });
 
       if (!res.ok) {
@@ -501,7 +468,7 @@ export function ImportExportClient() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <a href="/dashboard" className="hover:text-foreground transition-colors">
+        <a href={portalBase} className="hover:text-foreground transition-colors">
           Dashboard
         </a>
         <ChevronRight className="size-3.5" />
@@ -554,7 +521,7 @@ export function ImportExportClient() {
               </>
             ) : (
               <>
-                <HardDrive className="size-4" /> Backup Database
+                <HardDrive className="size-4" /> Create Module Backup
               </>
             )}
           </button>
@@ -570,9 +537,9 @@ export function ImportExportClient() {
               <Upload className="size-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-foreground text-lg font-semibold">Import Database</h2>
+              <h2 className="text-foreground text-lg font-semibold">Import Business Data</h2>
               <p className="text-muted-foreground text-xs">
-                Upload a file to restore or import data
+                Import supported company, customer/vendor, or referral records
               </p>
             </div>
           </div>
@@ -585,10 +552,8 @@ export function ImportExportClient() {
                 onChange={(e) => setImportModule(e.target.value)}
                 className="border-border/60 bg-card focus:ring-primary/20 h-10 w-full rounded-lg border px-3 text-sm transition-all focus:ring-2 focus:outline-none"
               >
-                <option value="database">Full Database (SQL)</option>
                 <option value="companies">Companies Data</option>
                 <option value="to-companies">To Companies Data</option>
-                <option value="invoices">Invoice Data</option>
                 <option value="referrals">Referral Data</option>
               </select>
             </div>
@@ -628,13 +593,13 @@ export function ImportExportClient() {
                 <p className="text-muted-foreground mt-0.5 text-xs">
                   {importFile
                     ? `${(importFile.size / 1024 / 1024).toFixed(2)} MB`
-                    : "or click to browse (SQL, CSV, Excel, JSON)"}
+                    : "or click to browse (CSV, Excel, JSON)"}
                 </p>
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".sql,.csv,.xlsx,.xls,.json"
+                accept=".csv,.xlsx,.xls,.json"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) validateAndSetFile(f);
@@ -646,15 +611,11 @@ export function ImportExportClient() {
             {importStatus === "uploading" && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Importing...</span>
-                  <span className="text-foreground font-medium">
-                    {Math.min(Math.round(importProgress), 100)}%
-                  </span>
+                  <span className="text-muted-foreground">Uploading and processing...</span>
                 </div>
                 <div className="bg-muted/50 h-2 overflow-hidden rounded-full">
                   <div
-                    className="bg-primary h-full rounded-full transition-all duration-300"
-                    style={{ width: `${Math.min(importProgress, 100)}%` }}
+                    className="bg-primary h-full w-1/3 animate-pulse rounded-full"
                   />
                 </div>
               </div>
@@ -698,8 +659,8 @@ export function ImportExportClient() {
             <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
               <Info className="mt-0.5 size-4 shrink-0 text-amber-600" />
               <p className="text-muted-foreground text-xs">
-                Please utilize this correctly as using an imported old database may result in data
-                loss! Always create a backup before importing.
+                SQL dumps and full-database restores are not supported. Import only the selected
+                module; records that fail validation are reported in the result summary.
               </p>
             </div>
 
@@ -744,8 +705,8 @@ export function ImportExportClient() {
               <Download className="size-5 text-emerald-600" />
             </div>
             <div>
-              <h2 className="text-foreground text-lg font-semibold">Export Database</h2>
-              <p className="text-muted-foreground text-xs">Download your data in various formats</p>
+              <h2 className="text-foreground text-lg font-semibold">Export Business Data</h2>
+              <p className="text-muted-foreground text-xs">Download one workspace module at a time</p>
             </div>
           </div>
 
@@ -830,15 +791,11 @@ export function ImportExportClient() {
             {exportStatus === "exporting" && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Exporting...</span>
-                  <span className="text-foreground font-medium">
-                    {Math.min(Math.round(exportProgress), 100)}%
-                  </span>
+                  <span className="text-muted-foreground">Preparing export...</span>
                 </div>
                 <div className="bg-muted/50 h-2 overflow-hidden rounded-full">
                   <div
-                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                    style={{ width: `${Math.min(exportProgress, 100)}%` }}
+                    className="h-full w-1/3 animate-pulse rounded-full bg-emerald-500"
                   />
                 </div>
               </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   useReactTable,
@@ -12,6 +13,8 @@ import type { AppUser } from "@/lib/data";
 import type { UserFormData } from "@/lib/validations";
 import { cn } from "@/lib/utils";
 import { UserForm } from "@/components/user/user-form";
+import { useSession } from "@/components/auth/session-provider";
+import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
 import {
   UsersRound,
   Plus,
@@ -56,6 +59,10 @@ type DialogMode =
   | { type: "access"; user: AppUser };
 
 export function UsersClient() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
+  const { user: sessionUser } = useSession();
+  const canManage = sessionUser.role === "ADMIN";
   const [data, setData] = useState<AppUser[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -65,12 +72,14 @@ export function UsersClient() {
   const [dialog, setDialog] = useState<DialogMode>(null);
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const sortField = sorting.length > 0 ? sorting[0].id : "createdAt";
       const sortOrder = sorting.length > 0 ? (sorting[0].desc ? "desc" : "asc") : "desc";
@@ -82,12 +91,12 @@ export function UsersClient() {
         sortOrder,
       });
       const res = await fetch(`/api/users?${params}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.data);
-        setTotal(json.total);
-      }
-    } catch {
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Unable to load users");
+      setData(json.data);
+      setTotal(json.total);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Unable to load users");
     } finally {
       setLoading(false);
     }
@@ -210,6 +219,19 @@ export function UsersClient() {
             <div className="min-w-0">
               <p className="text-foreground truncate font-semibold">{row.firstName} {row.lastName}</p>
               <p className="text-muted-foreground truncate text-xs">@{row.username}</p>
+              <WorkspaceOwner
+                workspace={
+                  row.admin ??
+                  (row.role.toUpperCase() === "ADMIN"
+                    ? {
+                        id: row.id,
+                        username: row.username,
+                        firstName: row.firstName,
+                        lastName: row.lastName,
+                      }
+                    : null)
+                }
+              />
             </div>
           </div>
         );
@@ -279,6 +301,7 @@ export function UsersClient() {
       id: "actions",
       header: "Option",
       cell: (info) => {
+        if (!canManage) return null;
         const user = info.row.original;
         return (
           <div className="relative">
@@ -328,10 +351,11 @@ export function UsersClient() {
   return (
     <div className="space-y-6">
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <a href="/dashboard" className="hover:text-foreground transition-colors">Home</a>
+        <a href={portalBase} className="hover:text-foreground transition-colors">Home</a>
         <BreadcrumbSep className="size-3.5" />
         <span className="text-foreground font-medium">Users</span>
       </nav>
+      {loadError && <p className="text-destructive rounded-lg border p-3 text-sm" role="alert">{loadError}</p>}
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -344,13 +368,13 @@ export function UsersClient() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          {canManage && <button
             onClick={() => setDialog({ type: "add" })}
             className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
           >
             <Plus className="size-4" />
             New User
-          </button>
+          </button>}
         </div>
       </div>
 

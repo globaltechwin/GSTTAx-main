@@ -6,10 +6,14 @@ import { InvoiceTemplate, type InvoicePrintData } from "@/components/invoice/inv
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, RefreshCw, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "@/components/auth/session-provider";
 
 export default function InvoicePreviewPage() {
   const params = useParams();
   const id = params.id as string;
+  const { user } = useSession();
+  const invoicePath = user.role === "SUPERADMIN" ? "/superadmin/invoices" : "/dashboard/invoices";
+  const homePath = user.role === "SUPERADMIN" ? "/superadmin" : "/dashboard";
 
   const [invoice, setInvoice] = useState<InvoicePrintData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +63,7 @@ export default function InvoicePreviewPage() {
         <div className="flex flex-col items-center gap-3">
           <AlertCircle className="size-8 text-red-500" />
           <p className="text-foreground font-medium">{error || "Invoice not found"}</p>
-          <Link href="/dashboard/invoices">
+          <Link href={invoicePath}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="mr-2 size-4" />
               Back to Invoices
@@ -75,11 +79,11 @@ export default function InvoicePreviewPage() {
       {/* Non-printable header */}
       <div className="no-print space-y-4">
         <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-          <Link href="/dashboard" className="hover:text-foreground transition-colors">
+          <Link href={homePath} className="hover:text-foreground transition-colors">
             Home
           </Link>
           <span className="size-3.5">/</span>
-          <Link href="/dashboard/invoices" className="hover:text-foreground transition-colors">
+          <Link href={invoicePath} className="hover:text-foreground transition-colors">
             Invoices
           </Link>
           <span className="size-3.5">/</span>
@@ -91,7 +95,7 @@ export default function InvoicePreviewPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href="/dashboard/invoices"
+              href={invoicePath}
               className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all"
             >
               <ArrowLeft className="size-4" />
@@ -102,6 +106,14 @@ export default function InvoicePreviewPage() {
               <p className="text-muted-foreground mt-0.5 text-sm">
                 Invoice #{invoice.invoiceNo || invoice.orderId} — Print or download as PDF
               </p>
+              {user.role === "SUPERADMIN" && invoice.workspace && (
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Workspace: {invoice.workspace.username}
+                  {invoice.workspace.firstName || invoice.workspace.lastName
+                    ? ` (${[invoice.workspace.firstName, invoice.workspace.lastName].filter(Boolean).join(" ")})`
+                    : ""}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">

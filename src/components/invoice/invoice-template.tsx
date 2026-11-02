@@ -50,6 +50,12 @@ export interface InvoiceToCompanyData {
 
 export interface InvoicePrintData {
   id: number;
+  workspace?: {
+    id: number;
+    username: string;
+    firstName: string | null;
+    lastName: string | null;
+  } | null;
   orderId: string;
   invoiceNo: string | null;
   email: string | null;

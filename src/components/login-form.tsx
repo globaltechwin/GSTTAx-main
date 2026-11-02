@@ -63,16 +63,14 @@ export function LoginForm() {
           body: JSON.stringify({
             username: data.username,
             password: data.password,
+            rememberMe: data.rememberMe,
           }),
         });
 
         const result = await response.json();
 
         if (result.success) {
-          if (result.user) {
-            localStorage.setItem("gsttax_user", JSON.stringify(result.user));
-          }
-          router.push("/dashboard");
+          router.push(result.user?.role === "SUPERADMIN" ? "/superadmin" : "/dashboard");
         } else {
           setServerError(result.error || "Invalid credentials");
         }

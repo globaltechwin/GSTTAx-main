@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userSchema, type UserFormData } from "@/lib/validations";
 import { Label } from "@/components/ui/label";
@@ -39,14 +39,13 @@ interface UserFormProps {
 }
 
 export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps) {
-  const [selectedAccess, setSelectedAccess] = useState<string[]>(user?.sidebarAccess || []);
-
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
     setValue,
+    control,
   } = useForm({
     resolver: zodResolver(userSchema),
     defaultValues: {
@@ -61,6 +60,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
       sidebarAccess: user?.sidebarAccess ?? [],
     },
   });
+  const selectedAccess = useWatch({ control, name: "sidebarAccess" }) ?? [];
 
   useEffect(() => {
     if (user) {
@@ -75,16 +75,14 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
         status: user.status as "active" | "inactive",
         sidebarAccess: user.sidebarAccess,
       });
-      setSelectedAccess(user.sidebarAccess);
     }
   }, [user, reset]);
 
   const toggleAccess = (key: string) => {
-    setSelectedAccess((prev) => {
-      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
-      setValue("sidebarAccess", next);
-      return next;
-    });
+    const next = selectedAccess.includes(key)
+      ? selectedAccess.filter((item) => item !== key)
+      : [...selectedAccess, key];
+    setValue("sidebarAccess", next, { shouldDirty: true, shouldValidate: true });
   };
 
   const handleFormSubmit = (data: Record<string, unknown>) => {
@@ -99,7 +97,9 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
             First Name <span className="text-destructive">*</span>
           </Label>
           <Input id="firstName" {...register("firstName")} aria-invalid={!!errors.firstName} />
-          {errors.firstName && <p className="text-destructive text-xs">{errors.firstName.message}</p>}
+          {errors.firstName && (
+            <p className="text-destructive text-xs">{errors.firstName.message}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="lastName">
@@ -149,8 +149,18 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
               <option value="admin">Admin</option>
             </select>
             <div className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
-              <svg className="text-muted-foreground size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <svg
+                className="text-muted-foreground size-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </div>
           </div>
@@ -167,8 +177,18 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
               <option value="inactive">Inactive</option>
             </select>
             <div className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
-              <svg className="text-muted-foreground size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              <svg
+                className="text-muted-foreground size-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </div>
           </div>

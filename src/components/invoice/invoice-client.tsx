@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
 import {
   useReactTable,
@@ -34,6 +35,8 @@ import {
   Pencil,
 } from "lucide-react";
 import Link from "next/link";
+import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
+import { useSession } from "@/components/auth/session-provider";
 
 interface InvoiceCompany {
   id: number;
@@ -64,6 +67,7 @@ interface InvoiceData {
   company: InvoiceCompany | null;
   toCompany: InvoiceCompany | null;
   items: InvoiceItem[];
+  workspace?: { id: number; username: string; firstName: string; lastName: string } | null;
 }
 
 interface InvoiceStats {
@@ -73,6 +77,9 @@ interface InvoiceStats {
 }
 
 export function InvoiceClient() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
+  const { user } = useSession();
   const [data, setData] = useState<InvoiceData[]>([]);
   const [stats, setStats] = useState<InvoiceStats>({
     totalInvoices: 0,
@@ -88,11 +95,13 @@ export function InvoiceClient() {
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const sortField = sorting.length > 0 ? sorting[0].id : "createdAt";
       const sortOrder = sorting.length > 0 ? (sorting[0].desc ? "desc" : "asc") : "desc";
@@ -104,12 +113,12 @@ export function InvoiceClient() {
         sortOrder,
       });
       const res = await fetch(`/api/invoices?${params}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.data);
-        setTotal(json.total);
-      }
-    } catch {
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Unable to load invoices");
+      setData(json.data);
+      setTotal(json.total);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Unable to load invoices");
     } finally {
       setLoading(false);
     }
@@ -118,10 +127,12 @@ export function InvoiceClient() {
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch("/api/invoices/stats");
-      if (res.ok) {
-        setStats(await res.json());
-      }
-    } catch {}
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Unable to load invoice statistics");
+      setStats(json);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Unable to load invoice statistics");
+    }
   }, []);
 
   useEffect(() => {
@@ -209,7 +220,20 @@ export function InvoiceClient() {
       cell: (info) => {
         const row = info.row.original;
         const displayNo = row.invoiceNo || row.orderId;
-        return <span className="text-foreground font-mono text-xs font-semibold">{displayNo}</span>;
+        return user.role === "SUPERADMIN" ? (
+          <Link
+            href={`/superadmin/invoices/${row.id}`}
+            className="text-foreground font-mono text-xs font-semibold hover:underline"
+          >
+            {displayNo}
+            <WorkspaceOwner workspace={row.workspace} />
+          </Link>
+        ) : (
+          <span className="text-foreground font-mono text-xs font-semibold">
+            {displayNo}
+            <WorkspaceOwner workspace={row.workspace} />
+          </span>
+        );
       },
       size: 120,
     },
@@ -320,6 +344,7 @@ export function InvoiceClient() {
       id: "actions",
       header: "Option",
       cell: (info) => {
+        if (user.role !== "ADMIN") return null;
         const invoice = info.row.original;
         return (
           <div className="relative">
@@ -336,7 +361,7 @@ export function InvoiceClient() {
             {openMenuId === invoice.id && (
               <div className="border-border/60 bg-popover animate-fade-in absolute right-0 z-20 mt-1 w-44 rounded-xl border p-1.5 shadow-xl">
                 <Link
-                  href={`/dashboard/invoices/${invoice.id}`}
+                  href={`${portalBase}/invoices/${invoice.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 >
@@ -344,7 +369,7 @@ export function InvoiceClient() {
                   View Details
                 </Link>
                 <Link
-                  href={`/dashboard/invoices/${invoice.id}`}
+                  href={`${portalBase}/invoices/${invoice.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 >
@@ -363,7 +388,7 @@ export function InvoiceClient() {
                   Send Invoice
                 </button>
                 <Link
-                  href={`/dashboard/invoices/${invoice.id}/edit`}
+                  href={`${portalBase}/invoices/${invoice.id}/edit`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 >
@@ -415,12 +440,13 @@ export function InvoiceClient() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <a href="/dashboard" className="hover:text-foreground transition-colors">
+        <a href={portalBase} className="hover:text-foreground transition-colors">
           Home
         </a>
         <BreadcrumbSep className="size-3.5" />
         <span className="text-foreground font-medium">Invoices</span>
       </nav>
+      {loadError && <p className="text-destructive rounded-lg border p-3 text-sm" role="alert">{loadError}</p>}
 
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -448,17 +474,21 @@ export function InvoiceClient() {
             <Filter className="size-4" />
             Filters
           </button>
-          <button className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
-            <Download className="size-4" />
-            Export
-          </button>
-          <Link
-            href="/dashboard/invoices/new"
-            className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
-          >
-            <Plus className="size-4" />
-            Add Invoice
-          </Link>
+          {user.role === "ADMIN" && (
+            <>
+              <button className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
+                <Download className="size-4" />
+                Export
+              </button>
+              <Link
+                href={`${portalBase}/invoices/new`}
+                className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
+              >
+                <Plus className="size-4" />
+                Add Invoice
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -659,7 +689,7 @@ export function InvoiceClient() {
                       </div>
                       {!globalFilter && (
                         <Link
-                          href="/dashboard/invoices/new"
+                          href={`${portalBase}/invoices/new`}
                           className="btn-gradient text-primary-foreground mt-2 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
                         >
                           <Plus className="size-4" />

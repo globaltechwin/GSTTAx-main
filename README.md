@@ -2,7 +2,7 @@
 
 A full-stack **GST / invoicing ERP** built with Next.js 16, Prisma 7, MySQL/MariaDB, and Tailwind CSS 4.
 
-Manage companies, GST invoices, purchases, referrals, turnover reports, and users — with Excel/CSV import, export, and backup.
+Manage companies, GST invoices, purchases, referrals, turnover reports, and users with workspace-scoped access.
 
 ---
 
@@ -10,18 +10,19 @@ Manage companies, GST invoices, purchases, referrals, turnover reports, and user
 
 | Module | Description |
 |--------|-------------|
-| **Dashboard** | Stats cards (companies, invoices, purchases), revenue charts, recent activity |
+| **Dashboard** | Live, workspace-scoped business totals, monthly activity, and recent records |
 | **Company** | CRUD for your own companies with GST/PAN/ESI/EPF/SSI numbers, bank details, address |
 | **To Company** | CRUD for customers/vendors (bill-to & ship-to parties) with GST & vendor codes |
 | **Invoices** | GST invoices with CGST/SGST/IGST, reverse charge, line items, HSN/SAC, transport/challan, bank details, logo |
 | **Purchases** | Purchase register with taxable value, IGST/CGST/SGST breakup |
 | **Turnover Report** | Aggregated turnover reporting |
 | **Referrals** | Referral contact management |
-| **Import / Export** | Excel (`.xlsx`) & CSV import/export for companies, to-companies, invoices, referrals, full database — with history logs |
-| **Backup** | Full/module backups as Excel, CSV, or JSON |
-| **Users** | User management with roles (`admin` / `user`), status, and per-module sidebar access |
-| **Auth** | Username/password login with role-based sidebar visibility |
-| **Settings** | App preferences (persisted client-side) |
+| **Import / Export** | Excel (`.xlsx`) & CSV imports for companies, to-companies, and referrals; exports are limited to supported modules and tracked |
+| **Backup** | Versioned module snapshots; snapshots are not a database restore mechanism |
+| **Users** | Workspace Admins manage subordinate users and module visibility |
+| **Auth** | Scrypt password hashes, database-backed sessions, login throttling, and role checks |
+| **Superadmin** | Platform overview, Admin workspace lifecycle management, and read-only live business records across Admin workspaces |
+| **Settings** | Platform and workspace settings are stored in the database and scoped to the selected portal |
 
 ---
 
@@ -84,23 +85,32 @@ mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS gst_tax;"
 
 ### 3. Create `.env`
 
-Create a `.env` file in the project root:
+Copy `.env.example` to `.env` in the project root, then configure the database connection and a
+random bootstrap token of at least 32 characters. On Windows PowerShell, use
+`Copy-Item .env.example .env`.
 
 ```bash
 # Local MySQL
-DATABASE_URL="mysql://root:YOUR_PASSWORD@127.0.0.1:3306/gst_tax"
+DATABASE_URL="mysql://USER:PASSWORD@127.0.0.1:3306/gst_tax"
 ```
 
 **Cloud example (Aiven MySQL):**
 ```bash
-DATABASE_URL="mysql://avnadmin:PASSWORD@HOST:PORT/defaultdb?ssl-mode=REQUIRED"
+DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/defaultdb?ssl-mode=REQUIRED"
 ```
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | ✅ | MySQL connection string used by Prisma |
+| `DATABASE_URL` | Yes | MySQL/MariaDB connection URL used by Prisma |
+| `BOOTSTRAP_TOKEN` | Initial setup | Random one-time bootstrap secret; remove it after Superadmin creation |
 
 > `.env` is gitignored — never commit it.
+
+Generate a strong bootstrap token with:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+```
 
 ### 4. Generate Prisma Client & push schema
 
@@ -109,34 +119,24 @@ npx prisma generate
 npx prisma db push
 ```
 
+Review proposed schema changes and back up production data before applying them to an existing database.
+The Superadmin and workspace settings features require the `platform_settings` and
+`workspace_settings` tables defined in the Prisma schema.
+
 > ⚠️ `src/generated/prisma/` is gitignored. You **must** run `npx prisma generate` after every fresh clone, or the app fails with:
 > `Module not found: Can't resolve '@/generated/prisma/client'`
 
-### 5. Seed a login user
+### 5. Create the initial Superadmin
 
-There is no sign-up page. Create a user via the API (or SQL):
+There is no public registration or default login. Start the app, then call the one-time
+`POST /api/auth/bootstrap` endpoint with the configured `x-bootstrap-token` header and a JSON
+body containing `firstName`, `lastName`, `username`, and a password of 12–128 characters.
+The endpoint only works while `BOOTSTRAP_TOKEN` is set on the server. Remove that variable
+after successful bootstrap. Do not insert user records directly with SQL or create plaintext
+passwords.
 
-**Option A — API (app must be running):**
-```bash
-curl -X POST http://localhost:3000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "Admin",
-    "lastName": "User",
-    "username": "admin",
-    "password": "admin",
-    "role": "admin",
-    "status": "active",
-    "sidebarAccess": ["dashboard","companies","to-companies","invoices","purchases","turnover-report","referrals","import-export","users","settings"]
-  }'
-```
-
-**Option B — SQL:**
-```sql
-USE gst_tax;
-INSERT INTO users (first_name, last_name, username, password, role, status, sidebar_access, created_at, updated_at)
-VALUES ('Admin', 'User', 'admin', 'admin', 'admin', 'active', '["dashboard","companies","to-companies","invoices","purchases","turnover-report","referrals","import-export","users","settings"]', NOW(), NOW());
-```
+After bootstrap, sign in with the Superadmin account and create tenant Admin workspaces from
+the Superadmin portal. Each Admin can then manage subordinate users in their own workspace.
 
 ### 6. Run the app
 
@@ -148,16 +148,10 @@ Open **http://localhost:3000** → redirected to login.
 
 ---
 
-## Default Login Credentials
-
-> Development credentials only — **change them before deploying.**
-
-| Username | Password | Role  |
-|----------|----------|-------|
-| `admin`  | `admin`  | admin |
-| `yuvanth`| `Sheru#29` | user |
-
-Admins see the full sidebar. Regular users only see modules listed in their `sidebarAccess`.
+There are no default credentials. Admins have access to the modules enabled for their
+workspace. Subordinate Users are limited to their assigned modules and remain read-only for
+business data. Superadmins see business records across Admin workspaces in a read-only view;
+workspace and platform settings are stored separately.
 
 ---
 
@@ -207,6 +201,15 @@ GSTTAx-main/
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | POST | `/api/auth/login` | Login |
+| GET | `/api/auth/session` | Current session |
+| POST | `/api/auth/logout` | End the current session |
+| POST | `/api/auth/bootstrap` | One-time Superadmin bootstrap; requires `x-bootstrap-token` |
+| GET | `/api/dashboard` | Live dashboard data for the signed-in workspace |
+| GET | `/api/superadmin/dashboard` | Superadmin platform overview |
+| GET/POST | `/api/superadmin/admins` | List / create Admin workspaces |
+| GET/PUT | `/api/superadmin/admins/[adminId]` | Read / update an Admin workspace |
+| GET/PUT | `/api/superadmin/settings` | Read / save platform-wide settings (Superadmin only) |
+| GET/PUT | `/api/settings` | Read / save the signed-in workspace's settings |
 | GET/POST | `/api/companies` | List / create companies |
 | GET/PUT/DELETE | `/api/companies/[id]` | Company by id |
 | GET/POST | `/api/to-companies` | List / create to-companies |
@@ -243,17 +246,18 @@ Wrong username/password in `DATABASE_URL`, or the MySQL user lacks privileges on
 - Ensure SSL mode matches (e.g. `?ssl-mode=REQUIRED` for Aiven)
 
 ### Login fails with "Invalid username or password"
-- Create a user first (see [Seed a login user](#5-seed-a-login-user))
+- Create the initial Superadmin first (see [Create the initial Superadmin](#5-create-the-initial-superadmin))
 - Check `users.status` is `active`
 
 ---
 
 ## Security Notes
 
-- Passwords are currently stored **in plain text** — hash them (e.g. bcrypt) before any production use
-- Restrict CORS / auth on API routes before deploying publicly
+- Passwords are Scrypt-hashed. Legacy plaintext passwords are upgraded on successful login; rotate legacy credentials.
+- Apply the Prisma schema before deploying. Back up production data before schema changes.
+- Use HTTPS in production and keep `BOOTSTRAP_TOKEN` and database credentials secret.
 - Never commit `.env` or real credentials
-- Change default logins immediately
+- Login throttling is database-backed. API access and workspace ownership are checked server-side.
 
 ---
 

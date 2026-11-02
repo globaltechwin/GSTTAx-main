@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess } from "@/lib/auth";
 import { createBackup, type BackupModule, type BackupFormat } from "@/lib/services/backup-service";
 
 const VALID_MODULES: BackupModule[] = [
-  "database",
   "companies",
   "to-companies",
   "invoices",
@@ -11,9 +11,11 @@ const VALID_MODULES: BackupModule[] = [
 const VALID_FORMATS: BackupFormat[] = ["excel", "csv", "json"];
 
 export async function POST(request: NextRequest) {
+  const access = await requireApiAccess(request, "settings", "create", true);
+  if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
-    const { module, format, user } = body;
+    const { module, format } = body;
 
     if (!module || !VALID_MODULES.includes(module)) {
       return NextResponse.json({ error: "Invalid module" }, { status: 400 });
@@ -23,7 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid format" }, { status: 400 });
     }
 
-    const result = await createBackup(module, format, user || "admin");
+    const result = await createBackup(
+      module,
+      format,
+      access.user.username,
+      access.user.workspaceId!
+    );
 
     return new NextResponse(new Uint8Array(result.buffer), {
       status: 200,

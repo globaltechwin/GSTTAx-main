@@ -3,7 +3,7 @@ import { parse } from "csv-parse/sync";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 
-export type ImportModule = "database" | "companies" | "to-companies" | "invoices" | "referrals";
+export type ImportModule = "companies" | "to-companies" | "referrals";
 
 export interface ImportResult {
   imported: number;
@@ -14,13 +14,14 @@ export interface ImportResult {
 
 function parseFileContent(buffer: Buffer, fileType: string): Record<string, unknown>[] {
   switch (fileType) {
-    case "sql":
     case "json": {
       const text = buffer.toString("utf-8");
       const data: unknown = JSON.parse(text);
-      return Array.isArray(data)
-        ? (data as Record<string, unknown>[])
-        : [data as Record<string, unknown>];
+      if (Array.isArray(data) && data.every((row) => row && typeof row === "object")) {
+        return data as Record<string, unknown>[];
+      }
+      if (data && typeof data === "object") return [data as Record<string, unknown>];
+      throw new Error("JSON import must contain an object or an array of objects");
     }
     case "csv": {
       const text = buffer.toString("utf-8");
@@ -60,6 +61,15 @@ function mapRowToModel(
       esiNo: String(row.esiNo || row.esi_no || "").trim(),
       address: String(row.address || row.Address || "").trim(),
       epfNo: String(row.epfNo || row.epf_no || "").trim(),
+      state: String(row.state || row.State || "").trim(),
+      stateCode: String(row.stateCode || row.state_code || "").trim(),
+      bankHolderName: String(row.bankHolderName || row.bank_holder_name || "").trim(),
+      bankAccountNumber: String(row.bankAccountNumber || row.bank_account_number || "").trim(),
+      bankIfscCode: String(row.bankIfscCode || row.bank_ifsc_code || "").trim(),
+      bankName: String(row.bankName || row.bank_name || "").trim(),
+      bankBranchName: String(row.bankBranchName || row.bank_branch_name || "").trim(),
+      website: String(row.website || row.Website || "").trim(),
+      status: String(row.status || "active").trim(),
     };
   }
   if (module === "to-companies") {
@@ -67,6 +77,10 @@ function mapRowToModel(
       name: String(row.name || row.Name || row.company_name || "").trim(),
       gstNo: String(row.gstNo || row.gst_no || row.GST || "").trim(),
       vendorCode: String(row.vendorCode || row.vendor_code || row.VendorCode || "").trim(),
+      email: String(row.email || row.Email || "").trim(),
+      address: String(row.address || row.Address || "").trim(),
+      state: String(row.state || row.State || "").trim(),
+      stateCode: String(row.stateCode || row.state_code || "").trim(),
       date: parseDate(row.date || row.Date),
     };
   }
@@ -78,59 +92,43 @@ function mapRowToModel(
       date: parseDate(row.date || row.Date),
     };
   }
-  if (module === "invoices") {
-    return {
-      orderId: String(row.orderId || row.order_id || row.OrderId || "").trim(),
-      email: String(row.email || row.Email || "").trim(),
-      gst: String(row.gst || row.GST || "").trim(),
-      amount: parseFloat(String(row.amount || row.Amount || 0)) || 0,
-      total: parseFloat(String(row.total || row.Total || 0)) || 0,
-      date: parseDate(row.date || row.Date),
-    };
-  }
   return null;
 }
 
 function parseDate(val: unknown): Date {
-  if (!val) return new Date();
+  if (!val) throw new Error("A valid date is required");
   if (val instanceof Date) return val;
   const str = String(val).trim();
   const d = new Date(str);
   if (!isNaN(d.getTime())) return d;
-  return new Date();
+  throw new Error(`Invalid date: ${str}`);
 }
 
 async function checkDuplicate(
   module: ImportModule,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  adminId: number
 ): Promise<boolean> {
-  try {
-    if (module === "companies") {
-      const existing = await prisma.company.findFirst({
-        where: { name: data.name as string, date: data.date as Date },
-      });
-      return !!existing;
-    }
-    if (module === "to-companies") {
-      const existing = await prisma.toCompany.findFirst({
-        where: { name: data.name as string, date: data.date as Date },
-      });
-      return !!existing;
-    }
-    if (module === "referrals") {
-      const existing = await prisma.referral.findFirst({
-        where: { name: data.name as string, date: data.date as Date },
-      });
-      return !!existing;
-    }
-    if (module === "invoices") {
-      const existing = await prisma.invoice.findFirst({
-        where: { orderId: data.orderId as string },
-      });
-      return !!existing;
-    }
-  } catch {
-    return false;
+  if (module === "companies") {
+    const existing = await prisma.company.findFirst({
+      where: { adminId, name: data.name as string, date: data.date as Date },
+      select: { id: true },
+    });
+    return !!existing;
+  }
+  if (module === "to-companies") {
+    const existing = await prisma.toCompany.findFirst({
+      where: { adminId, name: data.name as string, date: data.date as Date },
+      select: { id: true },
+    });
+    return !!existing;
+  }
+  if (module === "referrals") {
+    const existing = await prisma.referral.findFirst({
+      where: { adminId, name: data.name as string, date: data.date as Date },
+      select: { id: true },
+    });
+    return !!existing;
   }
   return false;
 }
@@ -139,7 +137,8 @@ export async function importData(
   buffer: Buffer,
   fileType: string,
   module: ImportModule,
-  user: string
+  user: string,
+  adminId: number
 ): Promise<ImportResult & { historyId: number }> {
   const fileName = `import_${module}_${Date.now()}.${fileType}`;
   const fileSize = `${(buffer.length / 1024).toFixed(1)} KB`;
@@ -152,6 +151,7 @@ export async function importData(
       fileSize,
       status: "processing",
       user,
+      adminId,
     },
   });
 
@@ -170,20 +170,33 @@ export async function importData(
           continue;
         }
 
-        const isDuplicate = await checkDuplicate(module, mapped);
+        const isDuplicate = await checkDuplicate(module, mapped, adminId);
         if (isDuplicate) {
           skipped++;
           continue;
         }
 
         if (module === "companies") {
-          await prisma.company.create({ data: mapped as Prisma.CompanyCreateInput });
+          await prisma.company.create({
+            data: {
+              ...mapped,
+              adminId,
+            } as Prisma.CompanyUncheckedCreateInput,
+          });
         } else if (module === "to-companies") {
-          await prisma.toCompany.create({ data: mapped as Prisma.ToCompanyCreateInput });
+          await prisma.toCompany.create({
+            data: {
+              ...mapped,
+              adminId,
+            } as Prisma.ToCompanyUncheckedCreateInput,
+          });
         } else if (module === "referrals") {
-          await prisma.referral.create({ data: mapped as Prisma.ReferralCreateInput });
-        } else if (module === "invoices") {
-          await prisma.invoice.create({ data: mapped as Prisma.InvoiceCreateInput });
+          await prisma.referral.create({
+            data: {
+              ...mapped,
+              adminId,
+            } as Prisma.ReferralUncheckedCreateInput,
+          });
         }
         imported++;
       } catch (err) {
@@ -194,7 +207,13 @@ export async function importData(
 
     await prisma.importHistory.update({
       where: { id: history.id },
-      data: { status: "success", imported, skipped, failed },
+      data: {
+        status: imported === 0 && failed > 0 ? "failed" : "success",
+        imported,
+        skipped,
+        failed,
+        errorMsg: errors.length ? errors.join("\n").slice(0, 10_000) : null,
+      },
     });
 
     return { imported, skipped, failed, errors, historyId: history.id };

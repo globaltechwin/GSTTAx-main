@@ -1,28 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess } from "@/lib/auth";
 import { importData, type ImportModule } from "@/lib/services/import-service";
 
 const VALID_MODULES: ImportModule[] = [
-  "database",
   "companies",
   "to-companies",
-  "invoices",
   "referrals",
 ];
-const VALID_TYPES = [".sql", ".csv", ".xlsx", ".xls", ".json"];
+const VALID_TYPES = [".csv", ".xlsx", ".xls", ".json"];
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: NextRequest) {
+  const access = await requireApiAccess(request, "import-export", "import", true);
+  if (access instanceof NextResponse) return access;
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-    const importModule = formData.get("module") as string;
-    const user = (formData.get("user") as string) || "admin";
+    const importModule = formData.get("module");
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (!importModule || !VALID_MODULES.includes(importModule as ImportModule)) {
+    if (typeof importModule !== "string" || !VALID_MODULES.includes(importModule as ImportModule)) {
       return NextResponse.json({ error: "Invalid module" }, { status: 400 });
     }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
     if (!VALID_TYPES.includes(ext)) {
       return NextResponse.json(
-        { error: "Invalid file type. Supported: SQL, CSV, Excel, JSON" },
+        { error: "Invalid file type. Supported: CSV, Excel, JSON" },
         { status: 400 }
       );
     }
@@ -41,7 +41,13 @@ export async function POST(request: NextRequest) {
     const fileType = ext.replace(".", "");
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    const result = await importData(buffer, fileType, importModule as ImportModule, user);
+    const result = await importData(
+      buffer,
+      fileType,
+      importModule as ImportModule,
+      access.user.username,
+      access.user.workspaceId!
+    );
 
     return NextResponse.json({
       success: true,

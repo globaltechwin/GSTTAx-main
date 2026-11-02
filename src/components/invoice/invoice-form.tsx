@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -146,6 +146,8 @@ function numberToWords(num: number): string {
 
 export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
   const [dropdownData, setDropdownData] = useState<DropdownData>({
     companies: [],
     toCompanies: [],
@@ -500,7 +502,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
       const res = await postInvoice(body);
       if (res.ok) {
         const created = await res.json();
-        router.push(`/dashboard/invoices/${isEdit ? invoiceId : created.id}`);
+        router.push(`${portalBase}/invoices/${isEdit ? invoiceId : created.id}`);
       } else {
         const err = await res.json();
         setSubmitError(err.error || "Failed to create invoice");
@@ -525,7 +527,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
       if (res.ok) {
         const created = await res.json();
         const id = isEdit ? invoiceId : created.id;
-        window.open(`/dashboard/invoices/${id}`, "_blank");
+        window.open(`${portalBase}/invoices/${id}`, "_blank");
       } else {
         const err = await res.json();
         setSubmitError(err.error || "Failed to create invoice");
@@ -547,11 +549,11 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <Link href="/dashboard" className="hover:text-foreground transition-colors">
+        <Link href={portalBase} className="hover:text-foreground transition-colors">
           Home
         </Link>
         <BreadcrumbSep className="size-3.5" />
-        <Link href="/dashboard/invoices" className="hover:text-foreground transition-colors">
+        <Link href={`${portalBase}/invoices`} className="hover:text-foreground transition-colors">
           Invoices
         </Link>
         <BreadcrumbSep className="size-3.5" />
@@ -562,7 +564,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard/invoices"
+            href={`${portalBase}/invoices`}
             className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all"
           >
             <ArrowLeft className="size-4" />
@@ -1439,7 +1441,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
 
       {/* Action Buttons */}
       <div className="border-border/60 bg-card flex items-center justify-end gap-3 rounded-2xl border p-4 shadow-sm">
-        <Link href="/dashboard/invoices">
+        <Link href={`${portalBase}/invoices`}>
           <Button type="button" variant="outline">
             Cancel
           </Button>

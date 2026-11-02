@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,12 +11,20 @@ import {
   type SortingState,
   type ColumnDef,
 } from "@tanstack/react-table";
-import { companies, type Company } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { ArrowUpDown, Plus, Search, Building2 } from "lucide-react";
 
-const columns: ColumnDef<Company>[] = [
+interface DashboardCompany {
+  id: number;
+  name: string;
+  gstNo: string | null;
+  email: string | null;
+  phone: string | null;
+  status: string | null;
+}
+
+const columns: ColumnDef<DashboardCompany>[] = [
   {
     id: "srNo",
     header: "Sr.No",
@@ -29,7 +37,7 @@ const columns: ColumnDef<Company>[] = [
     header: "Company Name",
     cell: (info) => (
       <div className="flex items-center gap-2.5">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <div className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-lg">
           <Building2 className="size-3.5" />
         </div>
         <span className="text-foreground font-medium">{info.row.original.name}</span>
@@ -82,9 +90,7 @@ const columns: ColumnDef<Company>[] = [
         <span
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold",
-            isActive
-              ? "bg-emerald-500/10 text-emerald-600"
-              : "bg-muted text-muted-foreground"
+            isActive ? "bg-emerald-500/10 text-emerald-600" : "bg-muted text-muted-foreground"
           )}
         >
           <span
@@ -103,6 +109,32 @@ const columns: ColumnDef<Company>[] = [
 export function CompaniesTable() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [companies, setCompanies] = useState<DashboardCompany[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/companies?page=1&pageSize=100&sortBy=createdAt&sortOrder=desc", {
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Unable to load companies");
+        if (active) setCompanies(result.data);
+      })
+      .catch((loadError) => {
+        if (active) {
+          setError(loadError instanceof Error ? loadError.message : "Unable to load companies");
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const table = useReactTable({
     data: companies,
@@ -116,14 +148,25 @@ export function CompaniesTable() {
     getFilteredRowModel: getFilteredRowModel(),
     initialState: { pagination: { pageSize: 10 } },
   });
+  const filteredCount = table.getFilteredRowModel().rows.length;
+  const pageIndex = table.getState().pagination.pageIndex;
+  const pageSize = table.getState().pagination.pageSize;
+  const startEntry = filteredCount === 0 ? 0 : pageIndex * pageSize + 1;
+  const endEntry = Math.min((pageIndex + 1) * pageSize, filteredCount);
 
   return (
     <div className="border-border/60 bg-card overflow-hidden rounded-2xl border shadow-sm transition-all duration-300 hover:shadow-md">
       {/* Header */}
       <div className="border-border/60 flex flex-col items-start justify-between gap-3 border-b p-5 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">
+          <h3 className="text-foreground text-sm font-semibold">Latest companies</h3>
           <span className="text-muted-foreground text-sm">Show</span>
-          <select className="border-border/60 bg-card focus:ring-primary/20 h-8 rounded-lg border px-2 text-sm transition-all focus:ring-2 focus:outline-none">
+          <select
+            aria-label="Companies per page"
+            value={pageSize}
+            onChange={(event) => table.setPageSize(Number(event.target.value))}
+            className="border-border/60 bg-card focus:ring-primary/20 h-8 rounded-lg border px-2 text-sm transition-all focus:ring-2 focus:outline-none"
+          >
             <option value={10}>10</option>
             <option value={25}>25</option>
             <option value={50}>50</option>
@@ -138,7 +181,7 @@ export function CompaniesTable() {
               placeholder="Search companies..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="input-premium border-border/60 bg-muted/30 h-8 w-full rounded-lg border py-2 pr-3 pl-9 text-sm transition-all focus:ring-2 focus:ring-primary/20 focus:outline-none sm:w-56"
+              className="input-premium border-border/60 bg-muted/30 focus:ring-primary/20 h-8 w-full rounded-lg border py-2 pr-3 pl-9 text-sm transition-all focus:ring-2 focus:outline-none sm:w-56"
             />
           </div>
           <Link
@@ -153,6 +196,11 @@ export function CompaniesTable() {
 
       {/* Table */}
       <div className="overflow-x-auto">
+        {error && (
+          <p className="text-destructive p-5 text-sm" role="alert">
+            {error}
+          </p>
+        )}
         <table className="w-full">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -160,7 +208,7 @@ export function CompaniesTable() {
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="text-muted-foreground px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider"
+                    className="text-muted-foreground px-5 py-3 text-left text-xs font-semibold tracking-wider uppercase"
                   >
                     {header.isPlaceholder ? null : (
                       <button
@@ -179,21 +227,41 @@ export function CompaniesTable() {
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row, index) => (
-              <tr
-                key={row.id}
-                className="border-border/40 hover:bg-muted/20 border-b transition-all duration-200 last:border-0"
-                style={{
-                  animationDelay: `${800 + index * 50}ms`,
-                }}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-5 py-3.5 text-sm">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+            {loading ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="text-muted-foreground px-5 py-8 text-center text-sm"
+                >
+                  Loading companies...
+                </td>
               </tr>
-            ))}
+            ) : table.getRowModel().rows.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="text-muted-foreground px-5 py-8 text-center text-sm"
+                >
+                  {error ? "Companies could not be loaded." : "No companies found."}
+                </td>
+              </tr>
+            ) : (
+              table.getRowModel().rows.map((row, index) => (
+                <tr
+                  key={row.id}
+                  className="border-border/40 hover:bg-muted/20 border-b transition-all duration-200 last:border-0"
+                  style={{
+                    animationDelay: `${800 + index * 50}ms`,
+                  }}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-5 py-3.5 text-sm">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -201,22 +269,9 @@ export function CompaniesTable() {
       {/* Footer */}
       <div className="border-border/60 flex items-center justify-between border-t px-5 py-3.5">
         <p className="text-muted-foreground text-sm">
-          Showing{" "}
-          <span className="text-foreground font-medium">
-            {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
-          </span>{" "}
-          to{" "}
-          <span className="text-foreground font-medium">
-            {Math.min(
-              (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-              table.getFilteredRowModel().rows.length
-            )}
-          </span>{" "}
-          of{" "}
-          <span className="text-foreground font-medium">
-            {table.getFilteredRowModel().rows.length}
-          </span>{" "}
-          entries
+          Showing <span className="text-foreground font-medium">{startEntry}</span> to{" "}
+          <span className="text-foreground font-medium">{endEntry}</span> of{" "}
+          <span className="text-foreground font-medium">{filteredCount}</span> loaded companies
         </p>
         <div className="flex items-center gap-1">
           <button

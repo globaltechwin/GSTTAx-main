@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { useSettingsStore, type SettingsCategory } from "@/stores/settings";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,8 @@ const navItems: NavItem[] = [
 ];
 
 export function SettingsLayout() {
+  const pathname = usePathname();
+  const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
   const { activeCategory, setActiveCategory } = useSettingsStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -60,7 +63,7 @@ export function SettingsLayout() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="text-muted-foreground flex items-center gap-1.5 text-sm">
-        <a href="/dashboard" className="hover:text-foreground transition-colors">
+        <a href={portalBase} className="hover:text-foreground transition-colors">
           Dashboard
         </a>
         <ChevronRight className="size-3.5" />
@@ -171,7 +174,6 @@ export function SettingsLayout() {
               </div>
             </div>
 
-            {/* Panel Content */}
             <div className="animate-fade-in">
               <PanelContent category={activeCategory} />
             </div>

@@ -1,5 +1,5 @@
-import { SettingsLayout } from "@/components/settings/settings-layout";
+import { PlatformSettings } from "@/components/settings/platform-settings";
 
 export default function SettingsPage() {
-  return <SettingsLayout />;
+  return <PlatformSettings scope="workspace" />;
 }

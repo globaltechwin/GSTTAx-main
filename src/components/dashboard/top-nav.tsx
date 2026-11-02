@@ -3,29 +3,15 @@
 import { useState, useEffect } from "react";
 import { useSidebarStore } from "@/stores/sidebar";
 import { cn } from "@/lib/utils";
-import { Search, Bell, LogOut, ChevronDown } from "lucide-react";
-import { useRouter } from "next/navigation";
-
-interface StoredUser {
-  id: number;
-  firstName: string;
-  lastName: string;
-  username: string;
-  role: string;
-}
+import { Search, Bell, LogOut, ChevronDown, Menu, X } from "lucide-react";
+import { useSession } from "@/components/auth/session-provider";
 
 export function TopNav() {
-  const { isCollapsed } = useSidebarStore();
-  const router = useRouter();
+  const { isCollapsed, isMobileOpen, toggleMobile } = useSidebarStore();
+  const { user, logout } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [user, setUser] = useState<StoredUser | null>(null);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("gsttax_user");
-      if (raw) setUser(JSON.parse(raw));
-    } catch {}
-  }, []);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -36,22 +22,33 @@ export function TopNav() {
 
   const initials = user ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}` : "A";
   const displayName = user ? `${user.firstName} ${user.lastName}` : "Admin";
-  const displayRole = user?.role === "admin" ? "Administrator" : "User";
+  const displayRole =
+    user?.role === "SUPERADMIN" ? "Superadmin" : user?.role === "ADMIN" ? "Administrator" : "User";
 
   return (
     <header
       className={cn(
         "border-border/60 bg-card/80 fixed top-0 right-0 z-30 flex h-16 items-center border-b backdrop-blur-sm transition-all duration-300",
-        isCollapsed ? "left-[68px]" : "left-64"
+        isCollapsed ? "left-0 md:left-[68px]" : "left-0 md:left-64"
       )}
     >
       <div className="flex w-full items-center justify-between px-6">
         <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <button
+            type="button"
+            onClick={toggleMobile}
+            aria-label={isMobileOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-controls="dashboard-sidebar"
+            aria-expanded={isMobileOpen}
+            className="text-foreground hover:bg-muted/50 mr-1 -ml-3 inline-flex size-9 items-center justify-center rounded-lg md:hidden"
+          >
+            {isMobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
           <span>Dashboard</span>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="relative hidden sm:block">
+          <div className="relative hidden lg:block">
             <Search className="text-muted-foreground/60 absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <input
               type="text"
@@ -73,16 +70,21 @@ export function TopNav() {
                 e.stopPropagation();
                 setMenuOpen(!menuOpen);
               }}
-              className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors hover:bg-muted/50"
+              className="hover:bg-muted/50 flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors"
             >
               <div className="from-primary to-primary/80 text-primary-foreground shadow-primary/20 flex size-8 items-center justify-center rounded-xl bg-gradient-to-br text-xs font-bold shadow-sm">
                 {initials}
               </div>
-              <div className="hidden sm:block text-left">
+              <div className="hidden text-left sm:block">
                 <p className="text-foreground text-sm leading-none font-semibold">{displayName}</p>
                 <p className="text-muted-foreground mt-0.5 text-[11px]">{displayRole}</p>
               </div>
-              <ChevronDown className={cn("text-muted-foreground size-3.5 transition-transform", menuOpen && "rotate-180")} />
+              <ChevronDown
+                className={cn(
+                  "text-muted-foreground size-3.5 transition-transform",
+                  menuOpen && "rotate-180"
+                )}
+              />
             </button>
 
             {menuOpen && (
@@ -98,16 +100,31 @@ export function TopNav() {
                 </div>
                 <div className="py-1.5">
                   <button
-                    onClick={() => {
-                      setMenuOpen(false);
-                      localStorage.removeItem("gsttax_user");
-                      router.push("/");
+                    onClick={async () => {
+                      setLogoutError(null);
+                      setIsLoggingOut(true);
+                      try {
+                        await logout();
+                        setMenuOpen(false);
+                      } catch (error) {
+                        setLogoutError(
+                          error instanceof Error ? error.message : "Sign out failed unexpectedly."
+                        );
+                      } finally {
+                        setIsLoggingOut(false);
+                      }
                     }}
+                    disabled={isLoggingOut}
                     className="text-destructive hover:bg-destructive/5 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
                   >
                     <LogOut className="size-4" />
-                    Sign Out
+                    {isLoggingOut ? "Signing out..." : "Sign Out"}
                   </button>
+                  {logoutError && (
+                    <p className="text-destructive px-3 py-2 text-xs" role="alert">
+                      {logoutError}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

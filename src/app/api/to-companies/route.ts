@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
+  const access = await requireApiAccess(request, "to-companies");
+  if (access instanceof NextResponse) return access;
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
@@ -12,7 +15,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get("sortOrder") || "desc";
     const skip = (page - 1) * pageSize;
 
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { ...workspaceWhere(access.user) };
 
     if (search) {
       where.OR = [
@@ -38,6 +41,11 @@ export async function GET(request: NextRequest) {
         orderBy,
         skip,
         take: pageSize,
+        include: {
+          workspace: {
+            select: { id: true, username: true, firstName: true, lastName: true },
+          },
+        },
       }),
       prisma.toCompany.count({ where }),
     ]);
@@ -50,6 +58,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const access = await requireApiAccess(request, "to-companies", "create");
+  if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
     const { name, gstNo, vendorCode, date } = body;
@@ -58,7 +68,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name and date are required" }, { status: 400 });
     }
 
-    const existingByName = await prisma.toCompany.findFirst({ where: { name } });
+    const existingByName = await prisma.toCompany.findFirst({
+      where: { name, adminId: access.user.workspaceId },
+    });
     if (existingByName) {
       return NextResponse.json(
         { error: "A to-company with this name already exists" },
@@ -68,6 +80,7 @@ export async function POST(request: NextRequest) {
 
     const toCompany = await prisma.toCompany.create({
       data: {
+        adminId: access.user.workspaceId!,
         name,
         gstNo: gstNo || null,
         vendorCode: vendorCode || null,
