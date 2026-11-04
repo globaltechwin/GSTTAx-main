@@ -35,6 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             bankName: true,
             bankBranchName: true,
             website: true,
+            logoUrl: true,
           },
         },
         toCompany: {
@@ -116,6 +117,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       igstRate,
       reverseCharge,
       invoiceNo,
+      documentType,
+      discountAmount,
+      kindAttn,
+      mobileNo,
+      poNumber,
+      poDate,
       challanNo,
       transportMode,
       vehicleNo,
@@ -194,6 +201,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         cgstRate: rate(cgstRate, "CGST rate"),
         sgstRate: rate(sgstRate, "SGST rate"),
         igstRate: rate(igstRate, "IGST rate"),
+        discountAmount: Number(discountAmount || 0),
       });
     } catch (error) {
       return NextResponse.json(
@@ -229,6 +237,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         igstRate: igstRate || 0,
         reverseCharge: reverseCharge || false,
         invoiceNo: invoiceNo || null,
+        documentType: documentType || "TAX_INVOICE",
+        discountAmount: financials.discountAmount,
+        kindAttn: kindAttn || null,
+        mobileNo: mobileNo || null,
+        poNumber: poNumber || null,
+        poDate: poDate ? new Date(poDate) : null,
         challanNo: challanNo || null,
         transportMode: transportMode || null,
         vehicleNo: vehicleNo || null,

@@ -76,7 +76,8 @@ interface InvoiceStats {
   totalRevenue: number;
 }
 
-export function InvoiceClient() {
+export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?: "TAX_INVOICE" | "PROFORMA" }) {
+  const isProforma = documentType === "PROFORMA";
   const pathname = usePathname();
   const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
   const { user } = useSession();
@@ -109,31 +110,32 @@ export function InvoiceClient() {
         page: String(page),
         pageSize: String(pageSize),
         search: globalFilter,
+        documentType,
         sortBy: sortField,
         sortOrder,
       });
       const res = await fetch(`/api/invoices?${params}`);
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Unable to load invoices");
+      if (!res.ok) throw new Error(json.error || "Unable to load documents");
       setData(json.data);
       setTotal(json.total);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Unable to load invoices");
+      setLoadError(error instanceof Error ? error.message : "Unable to load documents");
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, sorting, globalFilter]);
+  }, [page, pageSize, sorting, globalFilter, documentType]);
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/invoices/stats");
+      const res = await fetch(`/api/invoices/stats?documentType=${documentType}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Unable to load invoice statistics");
       setStats(json);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : "Unable to load invoice statistics");
     }
-  }, []);
+  }, [documentType]);
 
   useEffect(() => {
     fetchData();
@@ -169,6 +171,26 @@ export function InvoiceClient() {
       }
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const params = new URLSearchParams({ page: "1", pageSize: "5000", search: globalFilter, documentType });
+      const response = await fetch(`/api/invoices?${params}`);
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Export failed");
+      const rows = (result.data || []) as InvoiceData[];
+      const columns = ["Document No", "Company", "Customer", "Email", "GST", "Subtotal", "Total", "Date"];
+      const csvCell = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+      const lines = [columns.map(csvCell).join(","), ...rows.map((row) => [row.invoiceNo || row.orderId, row.company?.name, row.toCompany?.name, row.email, row.gst, row.amount, row.total, row.date].map(csvCell).join(","))];
+      const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url; anchor.download = isProforma ? "proforma-invoices.csv" : "tax-invoices.csv"; anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Export failed");
     }
   };
 
@@ -216,13 +238,13 @@ export function InvoiceClient() {
     },
     {
       accessorKey: "orderId",
-      header: "Invoice No",
+      header: isProforma ? "Proforma No" : "Invoice No",
       cell: (info) => {
         const row = info.row.original;
         const displayNo = row.invoiceNo || row.orderId;
         return user.role === "SUPERADMIN" ? (
           <Link
-            href={`/superadmin/invoices/${row.id}`}
+            href={`/superadmin/${isProforma ? "proforma-invoices" : "invoices"}/${row.id}`}
             className="text-foreground font-mono text-xs font-semibold hover:underline"
           >
             {displayNo}
@@ -361,7 +383,7 @@ export function InvoiceClient() {
             {openMenuId === invoice.id && (
               <div className="border-border/60 bg-popover animate-fade-in absolute right-0 z-20 mt-1 w-44 rounded-xl border p-1.5 shadow-xl">
                 <Link
-                  href={`${portalBase}/invoices/${invoice.id}`}
+                  href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${invoice.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 >
@@ -369,7 +391,7 @@ export function InvoiceClient() {
                   View Details
                 </Link>
                 <Link
-                  href={`${portalBase}/invoices/${invoice.id}`}
+                  href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${invoice.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 >
@@ -388,7 +410,7 @@ export function InvoiceClient() {
                   Send Invoice
                 </button>
                 <Link
-                  href={`${portalBase}/invoices/${invoice.id}/edit`}
+                  href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${invoice.id}/edit`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 >
@@ -444,7 +466,7 @@ export function InvoiceClient() {
           Home
         </a>
         <BreadcrumbSep className="size-3.5" />
-        <span className="text-foreground font-medium">Invoices</span>
+        <span className="text-foreground font-medium">{isProforma ? "Proforma Invoices" : "Invoices"}</span>
       </nav>
       {loadError && <p className="text-destructive rounded-lg border p-3 text-sm" role="alert">{loadError}</p>}
 
@@ -455,9 +477,9 @@ export function InvoiceClient() {
             <FileText className="text-primary size-5" />
           </div>
           <div>
-            <h1 className="text-foreground text-xl font-bold tracking-tight">Invoice</h1>
+            <h1 className="text-foreground text-xl font-bold tracking-tight">{isProforma ? "Proforma Invoice" : "Invoice"}</h1>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              Manage your invoices and billing records
+              Manage your {isProforma ? "proforma invoices" : "invoices and billing records"}
             </p>
           </div>
         </div>
@@ -476,16 +498,16 @@ export function InvoiceClient() {
           </button>
           {user.role === "ADMIN" && (
             <>
-              <button className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
+              <button onClick={handleExport} className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
                 <Download className="size-4" />
                 Export
               </button>
               <Link
-                href={`${portalBase}/invoices/new`}
+                href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/new`}
                 className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
               >
                 <Plus className="size-4" />
-                Add Invoice
+                {isProforma ? "Add Proforma Invoice" : "Add Invoice"}
               </Link>
             </>
           )}
@@ -496,7 +518,7 @@ export function InvoiceClient() {
       <div className="grid gap-4 sm:grid-cols-3">
         {[
           {
-            label: "Total Invoices",
+            label: isProforma ? "Total Proforma Invoices" : "Total Invoices",
             value: stats.totalInvoices,
             icon: FileText,
             color: "text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-500/10",
@@ -504,7 +526,7 @@ export function InvoiceClient() {
             format: false,
           },
           {
-            label: "Total Revenue",
+            label: isProforma ? "Quoted Value" : "Total Revenue",
             value: stats.totalRevenue,
             icon: IndianRupee,
             color: "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-500/10",
@@ -609,7 +631,7 @@ export function InvoiceClient() {
               type="text"
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder="Search invoices..."
+              placeholder={isProforma ? "Search proforma invoices..." : "Search invoices..."}
               className="border-border/60 bg-card focus:ring-primary/20 input-premium h-9 w-full rounded-lg border py-2 pr-4 pl-9 text-sm transition-all focus:ring-2 focus:outline-none sm:w-64"
             />
             {globalFilter && (
@@ -680,20 +702,20 @@ export function InvoiceClient() {
                         <FileText className="text-muted-foreground/40 size-7" />
                       </div>
                       <div>
-                        <p className="text-foreground font-medium">No invoices found</p>
+                        <p className="text-foreground font-medium">No {isProforma ? "proforma invoices" : "invoices"} found</p>
                         <p className="text-muted-foreground mt-1 text-sm">
                           {globalFilter
                             ? "Try adjusting your search terms"
-                            : "Get started by creating your first invoice"}
+                            : `Get started by creating your first ${isProforma ? "proforma invoice" : "invoice"}`}
                         </p>
                       </div>
                       {!globalFilter && (
                         <Link
-                          href={`${portalBase}/invoices/new`}
+                          href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/new`}
                           className="btn-gradient text-primary-foreground mt-2 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
                         >
                           <Plus className="size-4" />
-                          Add Invoice
+                          {isProforma ? "Add Proforma Invoice" : "Add Invoice"}
                         </Link>
                       )}
                     </div>
@@ -812,7 +834,7 @@ export function InvoiceClient() {
                 <div className="flex size-9 items-center justify-center rounded-xl bg-red-500/10">
                   <Trash2 className="size-4.5 text-red-600" />
                 </div>
-                <h2 className="text-foreground text-lg font-semibold">Delete Invoice</h2>
+                <h2 className="text-foreground text-lg font-semibold">{isProforma ? "Delete Proforma Invoice" : "Delete Document"}</h2>
               </div>
               <button
                 onClick={() => setDialog(null)}
@@ -848,7 +870,7 @@ export function InvoiceClient() {
                 ) : (
                   <Trash2 className="size-4" />
                 )}
-                Delete Invoice
+                {isProforma ? "Delete Proforma Invoice" : "Delete Document"}
               </button>
             </div>
           </div>

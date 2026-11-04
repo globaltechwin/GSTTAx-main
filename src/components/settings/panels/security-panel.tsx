@@ -51,7 +51,7 @@ export function SecurityPanel() {
   const [sessionTimeout, setSessionTimeout] = useState("30");
   const [twoFactor, setTwoFactor] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState("5");
-  const [passwordMinLength, setPasswordMinLength] = useState("8");
+  const [passwordMinLength, setPasswordMinLength] = useState("4");
   const [requireUppercase, setRequireUppercase] = useState(true);
   const [requireNumber, setRequireNumber] = useState(true);
   const [requireSpecial, setRequireSpecial] = useState(false);

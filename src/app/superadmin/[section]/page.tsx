@@ -21,6 +21,10 @@ export default async function SuperadminSectionPage({ params }: RouteProps) {
       return <ToCompanyClient />;
     case "invoices":
       return <InvoiceClient />;
+    case "delivery-challans": {
+      const { DeliveryChallanClient } = await import("@/components/delivery-challan/delivery-challan-client");
+      return <DeliveryChallanClient />;
+    }
     case "purchases":
       return <PurchasesClient />;
     case "turnover-report":

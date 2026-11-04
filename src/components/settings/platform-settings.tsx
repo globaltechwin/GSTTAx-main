@@ -64,7 +64,7 @@ const categories: { key: Section; label: string; icon: typeof Settings; descript
     { key: "defaultUserModuleAccess", label: "Default module access preset", type: "select", defaultValue: "minimal", options: [{ label: "Minimal access", value: "minimal" }, { label: "Admin-assigned access", value: "admin-assigned" }] },
   ]},
   { key: "security", label: "Security", icon: Shield, description: "Saved policy preferences. Security enforcement remains governed by the application's server-side authentication configuration.", fields: [
-    { key: "minimumPasswordLength", label: "Minimum password length preference", type: "number", defaultValue: "12" },
+    { key: "minimumPasswordLength", label: "Minimum password length preference", type: "number", defaultValue: "4" },
     { key: "sessionTimeoutMinutes", label: "Session timeout preference (minutes)", type: "number", defaultValue: "60" },
     { key: "maxLoginAttempts", label: "Maximum login attempts preference", type: "number", defaultValue: "5" },
   ]},

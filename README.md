@@ -1,263 +1,398 @@
 # GSTTax — Enterprise ERP
 
-A full-stack **GST / invoicing ERP** built with Next.js 16, Prisma 7, MySQL/MariaDB, and Tailwind CSS 4.
+A full-stack **GST Billing and Enterprise Resource Planning (ERP)** application built with Next.js 16, React 19, TypeScript, Prisma 7, MySQL, and Tailwind CSS 4.
 
-Manage companies, GST invoices, purchases, referrals, turnover reports, and users with workspace-scoped access.
+GSTTax helps businesses manage companies, customers, vendors, GST invoices, proforma invoices, delivery challans, purchase orders, purchases, referrals, and business reports through a workspace-based ERP system.
 
 ---
 
 ## Features
 
 | Module | Description |
-|--------|-------------|
-| **Dashboard** | Live, workspace-scoped business totals, monthly activity, and recent records |
-| **Company** | CRUD for your own companies with GST/PAN/ESI/EPF/SSI numbers, bank details, address |
-| **To Company** | CRUD for customers/vendors (bill-to & ship-to parties) with GST & vendor codes |
-| **Invoices** | GST invoices with CGST/SGST/IGST, reverse charge, line items, HSN/SAC, transport/challan, bank details, logo |
-| **Purchases** | Purchase register with taxable value, IGST/CGST/SGST breakup |
-| **Turnover Report** | Aggregated turnover reporting |
-| **Referrals** | Referral contact management |
-| **Import / Export** | Excel (`.xlsx`) & CSV imports for companies, to-companies, and referrals; exports are limited to supported modules and tracked |
-| **Backup** | Versioned module snapshots; snapshots are not a database restore mechanism |
-| **Users** | Workspace Admins manage subordinate users and module visibility |
-| **Auth** | Scrypt password hashes, database-backed sessions, login throttling, and role checks |
-| **Superadmin** | Platform overview, Admin workspace lifecycle management, and read-only live business records across Admin workspaces |
-| **Settings** | Platform and workspace settings are stored in the database and scoped to the selected portal |
+|---|---|
+| **Dashboard** | Live, workspace-scoped business totals, monthly activity, and recent records. |
+| **Company** | Manage company details, GSTIN, PAN, ESI, EPF, SSI numbers, addresses, bank details, and company logos. |
+| **To Company** | Manage customer and business-party details, including billing and shipping information, GSTIN, and vendor codes. |
+| **Invoice** | Create and manage GST tax invoices with line items, HSN/SAC, CGST, SGST, IGST, reverse charge, transport details, bank details, and company logos. |
+| **Proforma Invoice** | Create and manage separate proforma invoices with independent numbering, customer details, product details, discounts, GST, and totals. |
+| **Delivery Challan** | Create and manage delivery challans independently of GST invoices and sales revenue. |
+| **Vendor Details** | Create, edit, search, and manage vendor records, including contact information, GSTIN, PAN, address, state, and opening balance. |
+| **Purchase Order** | Create, view, edit, approve, print, and manage vendor purchase orders with product details, quantities, discounts, GST types, and totals. |
+| **Purchase GST Calculation** | Calculate GST using IGST or CGST + SGST based on company and vendor states. Supports discounts and cess. |
+| **Purchases** | Manage purchase records and taxable values with GST breakup. |
+| **Turnover Report** | View aggregated turnover information for the workspace. |
+| **Referrals** | Manage referral contacts and related information. |
+| **Import / Export** | Import supported business records from Excel and CSV files and export supported data. |
+| **Backup** | Create versioned module snapshots. These snapshots are not a database restore mechanism. |
+| **Users** | Workspace Admins can manage subordinate users and their module permissions. |
+| **Superadmin** | Platform overview, Admin workspace management, and read-only access to business records across workspaces. |
+| **Settings** | Manage workspace settings and platform settings separately. |
+| **Authentication** | Scrypt password hashing, database-backed sessions, login throttling, and role-based access control. |
 
 ---
 
 ## Tech Stack
 
-- **Framework:** [Next.js 16](https://nextjs.org) (App Router) + React 19 + TypeScript
-- **Database:** MySQL / MariaDB (local or cloud, e.g. Aiven / TiDB Cloud)
-- **ORM:** [Prisma 7](https://www.prisma.io) with `@prisma/adapter-mariadb`
-- **Styling:** Tailwind CSS 4, shadcn/ui-style components, lucide-react icons
-- **Forms:** react-hook-form + Zod validation
-- **Tables:** TanStack Table
-- **Charts:** Recharts
-- **State:** Zustand
-- **Excel/CSV:** xlsx, papaparse, csv-parse
+| Technology | Usage |
+|---|---|
+| Next.js 16 | Full-stack framework and App Router |
+| React 19 | User interface |
+| TypeScript | Application development |
+| MySQL / MariaDB | Relational database |
+| Prisma 7 | ORM and database migrations |
+| Tailwind CSS 4 | Styling |
+| Lucide React | Icons |
+| React Hook Form | Form management |
+| Zod | Input validation |
+| TanStack Table | Data tables |
+| Recharts | Charts and reports |
+| Zustand | State management |
+| XLSX / PapaParse / CSV Parse | Excel and CSV processing |
 
 ---
 
 ## Prerequisites
 
-- **Node.js** 20+ (recommended 22 LTS)
-- **npm** (or yarn / pnpm / bun)
-- **MySQL** or **MariaDB** running locally (or a cloud MySQL connection string)
+Install the following before running the project:
 
-### Install MySQL locally (if you don't have one)
+- Node.js 20 or later (Node.js 22 LTS recommended)
+- npm
+- MySQL 8+ or compatible MariaDB
+- Git
+- Visual Studio Code (recommended)
 
-**macOS (Homebrew):**
+### MySQL installation
+
+**Windows:** Install MySQL using the [MySQL Installer](https://dev.mysql.com/downloads/installer/).
+
+**Ubuntu / Debian:**
+
+```bash
+sudo apt update
+sudo apt install mysql-server
+sudo systemctl start mysql
+```
+
+**macOS:**
+
 ```bash
 brew install mysql
 brew services start mysql
 ```
 
-**Ubuntu/Debian:**
-```bash
-sudo apt update && sudo apt install mysql-server
-sudo systemctl start mysql
-```
-
-**Windows:** Download [MySQL Installer](https://dev.mysql.com/downloads/installer/)
-
 ---
 
-## Setup — from scratch
+## Installation and Setup
 
-### 1. Clone & install
+### 1. Clone the repository
 
 ```bash
-git clone <repo-url>
-cd GSTTAx-main
+git clone https://github.com/YOUR-USERNAME/GSTTAx.git
+cd GSTTAx
+```
+
+Replace `YOUR-USERNAME` with your GitHub username.
+
+### 2. Install dependencies
+
+```bash
 npm install
 ```
 
-### 2. Create the database
+If you are installing from a committed package lock file, you can use:
 
 ```bash
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS gst_tax;"
+npm ci
 ```
 
-> Note your MySQL host, port, user, and password for the next step.
-> Default local port is `3306`. This project has also been used on port `3307`.
+### 3. Create the MySQL database
 
-### 3. Create `.env`
+```sql
+CREATE DATABASE gst_tax;
+```
 
-Copy `.env.example` to `.env` in the project root, then configure the database connection and a
-random bootstrap token of at least 32 characters. On Windows PowerShell, use
-`Copy-Item .env.example .env`.
+Default local MySQL configuration:
 
-```bash
-# Local MySQL
+- Host: `127.0.0.1`
+- Port: `3306`
+- Database: `gst_tax`
+
+### 4. Configure environment variables
+
+Create a `.env` file in the project root.
+
+You can copy the example file if `.env.example` exists.
+
+**Windows PowerShell:**
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Configure your database connection:
+
+```env
 DATABASE_URL="mysql://USER:PASSWORD@127.0.0.1:3306/gst_tax"
+BOOTSTRAP_TOKEN="YOUR_RANDOM_SECRET_TOKEN"
 ```
 
-**Cloud example (Aiven MySQL):**
-```bash
-DATABASE_URL="mysql://USER:PASSWORD@HOST:PORT/defaultdb?ssl-mode=REQUIRED"
-```
+For a cloud MySQL database, use the connection details provided by your database provider and configure SSL if required.
 
 | Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | MySQL/MariaDB connection URL used by Prisma |
-| `BOOTSTRAP_TOKEN` | Initial setup | Random one-time bootstrap secret; remove it after Superadmin creation |
+|---|---|---|
+| `DATABASE_URL` | Yes | MySQL/MariaDB database connection |
+| `BOOTSTRAP_TOKEN` | Initial setup | Secret token for creating the first Superadmin |
 
-> `.env` is gitignored — never commit it.
-
-Generate a strong bootstrap token with:
+Generate a strong bootstrap token:
 
 ```bash
 node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
 ```
 
-### 4. Generate Prisma Client & push schema
+**Security:** Never commit `.env` or expose database credentials in GitHub.
+
+### 5. Generate Prisma Client
 
 ```bash
 npx prisma generate
-npx prisma db push
 ```
 
-Review proposed schema changes and back up production data before applying them to an existing database.
-The Superadmin and workspace settings features require the `platform_settings` and
-`workspace_settings` tables defined in the Prisma schema.
+The generated Prisma Client is stored under:
 
-> ⚠️ `src/generated/prisma/` is gitignored. You **must** run `npx prisma generate` after every fresh clone, or the app fails with:
-> `Module not found: Can't resolve '@/generated/prisma/client'`
+```text
+src/generated/prisma/
+```
 
-### 5. Create the initial Superadmin
+This directory is generated locally and should not be committed.
 
-There is no public registration or default login. Start the app, then call the one-time
-`POST /api/auth/bootstrap` endpoint with the configured `x-bootstrap-token` header and a JSON
-body containing `firstName`, `lastName`, `username`, and a password of 12–128 characters.
-The endpoint only works while `BOOTSTRAP_TOKEN` is set on the server. Remove that variable
-after successful bootstrap. Do not insert user records directly with SQL or create plaintext
-passwords.
+### 6. Apply database migrations
 
-After bootstrap, sign in with the Superadmin account and create tenant Admin workspaces from
-the Superadmin portal. Each Admin can then manage subordinate users in their own workspace.
+For a fresh database or an existing database with the project's migration history:
 
-### 6. Run the app
+```bash
+npx prisma migrate deploy
+```
+
+This applies the committed migrations in order.
+
+**Important:** Back up existing database data before applying migrations to an existing database. Do not use `prisma migrate reset` on a database containing business records.
+
+### 7. Create the initial Superadmin
+
+GSTTax does not use public registration or default login credentials.
+
+Start the application and use the one-time endpoint:
+
+```text
+POST /api/auth/bootstrap
+```
+
+Include the configured `x-bootstrap-token` header and a JSON request body containing:
+
+- `firstName`
+- `lastName`
+- `username`
+- `password`
+
+The password must contain 12–128 characters.
+
+After successfully creating the initial Superadmin, remove `BOOTSTRAP_TOKEN` from the server environment and restart the application.
+
+The Superadmin can then create Admin workspaces. Each Admin manages their own workspace and subordinate users.
+
+### 8. Start the development server
 
 ```bash
 npm run dev
 ```
 
-Open **http://localhost:3000** → redirected to login.
+Open:
+
+```text
+http://localhost:3000
+```
 
 ---
 
-There are no default credentials. Admins have access to the modules enabled for their
-workspace. Subordinate Users are limited to their assigned modules and remain read-only for
-business data. Superadmins see business records across Admin workspaces in a read-only view;
-workspace and platform settings are stored separately.
+## Purchase Order GST Calculation
+
+Purchase Orders support GST calculation using the company and vendor state details.
+
+### Supported GST types
+
+| GST Type | Calculation |
+|---|---|
+| IGST | Full applicable GST rate |
+| CGST + SGST | GST split equally between CGST and SGST |
+| AUTO | Determines the tax split using company and vendor states |
+| CESS | Additional cess amount |
+
+### Calculation flow
+
+1. Calculate the product subtotal using quantity and unit rate.
+2. Apply the product discount.
+3. Calculate the taxable value.
+4. Calculate the applicable GST.
+5. Add cess.
+6. Calculate the final purchase order total.
+
+The server recalculates purchase order amounts when creating or updating records rather than trusting totals submitted by the browser.
+
+Complete company and vendor state details are important for correct intra-state and inter-state GST calculations.
+
+---
+
+## Workspace and User Access
+
+GSTTax uses workspace-scoped access.
+
+- **Superadmin:** Manages the platform and Admin workspaces.
+- **Admin:** Manages business records within their own workspace.
+- **Subordinate User:** Has access according to assigned module permissions.
+- **Tenant isolation:** One Admin cannot access another Admin's business records.
+- **Read-only Superadmin access:** Superadmin can inspect tenant business records without editing them through the read-only workspace views.
+
+Platform settings and workspace settings are stored separately.
 
 ---
 
 ## Available Scripts
 
 | Command | Description |
-|---------|-------------|
+|---|---|
 | `npm run dev` | Start development server |
-| `npm run build` | Generate Prisma Client + production build |
+| `npm run build` | Generate Prisma Client and create production build |
 | `npm run start` | Start production server |
 | `npm run lint` | Run ESLint |
 | `npm run lint:fix` | Fix ESLint issues |
-| `npm run format` | Format with Prettier |
+| `npm run format` | Format code using Prettier |
 | `npm run format:check` | Check formatting |
-| `npm run typecheck` | TypeScript type check |
+| `npm run typecheck` | Run TypeScript type checking |
 
 ---
 
 ## Project Structure
 
-```
-GSTTAx-main/
+```text
+GSTTAx/
 ├── prisma/
-│   └── schema.prisma          # Database schema
+│   ├── migrations/
+│   └── schema.prisma
 ├── src/
 │   ├── app/
-│   │   ├── page.tsx           # Login page
-│   │   ├── dashboard/         # App pages (companies, invoices, ...)
-│   │   └── api/               # REST API routes
-│   ├── components/            # UI components
+│   │   ├── api/
+│   │   │   ├── auth/
+│   │   │   ├── companies/
+│   │   │   ├── delivery-challans/
+│   │   │   ├── invoices/
+│   │   │   ├── purchase-orders/
+│   │   │   ├── purchases/
+│   │   │   ├── vendors/
+│   │   │   └── superadmin/
+│   │   ├── dashboard/
+│   │   ├── superadmin/
+│   │   └── page.tsx
+│   ├── components/
+│   │   ├── purchase-order/
+│   │   └── ...
+│   ├── generated/
+│   │   └── prisma/
 │   ├── lib/
-│   │   ├── auth.ts            # Authentication logic
-│   │   ├── db.ts              # Prisma client
-│   │   ├── data.ts            # Shared types / mock data
-│   │   ├── validations.ts     # Zod schemas
-│   │   └── services/          # Import / export / backup services
-│   ├── stores/                # Zustand stores
-│   └── generated/prisma/      # Prisma Client (generated, gitignored)
-├── .env                       # Environment variables (gitignored)
-└── package.json
+│   │   ├── auth.ts
+│   │   ├── db.ts
+│   │   ├── purchase-order-tax.ts
+│   │   └── ...
+│   └── stores/
+├── .env.example
+├── .gitignore
+├── package.json
+├── package-lock.json
+└── README.md
 ```
 
 ---
 
 ## API Overview
 
+The application exposes REST API routes for its main modules.
+
 | Method | Endpoint | Purpose |
-|--------|----------|---------|
-| POST | `/api/auth/login` | Login |
-| GET | `/api/auth/session` | Current session |
-| POST | `/api/auth/logout` | End the current session |
-| POST | `/api/auth/bootstrap` | One-time Superadmin bootstrap; requires `x-bootstrap-token` |
-| GET | `/api/dashboard` | Live dashboard data for the signed-in workspace |
-| GET | `/api/superadmin/dashboard` | Superadmin platform overview |
-| GET/POST | `/api/superadmin/admins` | List / create Admin workspaces |
-| GET/PUT | `/api/superadmin/admins/[adminId]` | Read / update an Admin workspace |
-| GET/PUT | `/api/superadmin/settings` | Read / save platform-wide settings (Superadmin only) |
-| GET/PUT | `/api/settings` | Read / save the signed-in workspace's settings |
-| GET/POST | `/api/companies` | List / create companies |
-| GET/PUT/DELETE | `/api/companies/[id]` | Company by id |
-| GET/POST | `/api/to-companies` | List / create to-companies |
-| GET/POST | `/api/invoices` | List / create invoices |
-| GET/POST | `/api/purchases` | List / create purchases |
-| GET/POST | `/api/referrals` | List / create referrals |
-| GET/POST | `/api/users` | List / create users |
-| GET | `/api/turnover-report` | Turnover report |
-| POST | `/api/import` | Import Excel/CSV |
-| GET | `/api/export` | Export data |
-| GET | `/api/backup` | Backup data |
+|---|---|---|
+| POST | `/api/auth/login` | Authenticate a user |
+| GET | `/api/auth/session` | Get current session |
+| POST | `/api/auth/logout` | End current session |
+| POST | `/api/auth/bootstrap` | One-time Superadmin creation |
+| GET | `/api/dashboard` | Workspace dashboard data |
+| GET | `/api/companies` | List companies |
+| POST | `/api/companies` | Create a company |
+| GET / PUT / DELETE | `/api/companies/[id]` | Manage a company |
+| GET / POST | `/api/to-companies` | Manage business parties |
+| GET / POST | `/api/invoices` | List and create invoices |
+| GET / POST | `/api/delivery-challans` | List and create delivery challans |
+| GET / POST | `/api/vendors` | List and create vendors |
+| GET / POST | `/api/purchase-orders` | List and create purchase orders |
+| GET / POST | `/api/purchases` | Manage purchase records |
+| GET / POST | `/api/referrals` | Manage referrals |
+| GET / POST | `/api/users` | Manage workspace users |
+| GET | `/api/turnover-report` | Retrieve turnover report |
+| POST | `/api/import` | Import supported Excel/CSV data |
+| GET | `/api/export` | Export supported records |
+| GET | `/api/backup` | Create backup snapshots |
+| GET | `/api/superadmin/dashboard` | Platform overview |
+| GET / POST | `/api/superadmin/admins` | List and create Admin workspaces |
+| GET / PUT | `/api/settings` | Workspace settings |
+| GET / PUT | `/api/superadmin/settings` | Platform settings |
 
 ---
 
 ## Troubleshooting
 
-### `Module not found: Can't resolve '@/generated/prisma/client'`
+### Prisma Client module not found
+
+Run:
+
 ```bash
 npx prisma generate
 ```
-Restart the dev server after generating.
 
-### `Can't reach MySQL server` / `ECONNREFUSED`
-- Ensure MySQL is running: `brew services list` (macOS) or `systemctl status mysql`
-- Verify `DATABASE_URL` host, port, user, password, and database name
-- Test: `mysql -u root -p -h 127.0.0.1 -P 3306 -e "SHOW DATABASES;"`
+Restart the development server.
 
-### `Access denied for user`
-Wrong username/password in `DATABASE_URL`, or the MySQL user lacks privileges on the database.
+### MySQL connection refused
 
-### Cloud DB host not resolving / connection timeout
-- Confirm the service is **Running** (not paused) in your cloud console
-- Confirm host/port from the console — copy them exactly
-- Ensure SSL mode matches (e.g. `?ssl-mode=REQUIRED` for Aiven)
+Check that MySQL is running and verify the host, port, database name, username, and password in `.env`.
 
-### Login fails with "Invalid username or password"
-- Create the initial Superadmin first (see [Create the initial Superadmin](#5-create-the-initial-superadmin))
-- Check `users.status` is `active`
+### Access denied for MySQL user
+
+Verify the database user's credentials and privileges.
+
+### Prisma migration error
+
+Check the migration status:
+
+```bash
+npx prisma migrate status
+```
+
+Back up the database before making any changes to an existing database. Do not reset a database containing business data.
+
+### Login fails
+
+- Confirm the initial Superadmin has been created.
+- Verify that the account is active.
+- Check that the application is connected to the correct database.
 
 ---
 
 ## Security Notes
 
-- Passwords are Scrypt-hashed. Legacy plaintext passwords are upgraded on successful login; rotate legacy credentials.
-- Apply the Prisma schema before deploying. Back up production data before schema changes.
-- Use HTTPS in production and keep `BOOTSTRAP_TOKEN` and database credentials secret.
-- Never commit `.env` or real credentials
-- Login throttling is database-backed. API access and workspace ownership are checked server-side.
+- Passwords are stored using Scrypt hashing.
+- Sessions are database-backed.
+- Login throttling is enabled.
+- API access and workspace ownership are checked server-side.
+- Keep database credentials and bootstrap tokens private.
+- Use HTTPS in production.
+- Back up the database before applying production migrations.
+- Never commit `.env`, private keys, or generated secrets.
 
 ---
 

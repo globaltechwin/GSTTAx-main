@@ -1,0 +1,1 @@
+import type {Metadata} from "next";import {PurchaseOrdersClient} from "@/components/purchase-order/purchase-orders-client";export const metadata:Metadata={title:"Purchase Orders | GSTTax",description:"Manage purchase orders"};export default function Page(){return <PurchaseOrdersClient/>}

@@ -1,0 +1,3 @@
+-- Baseline marker for the existing GSTTax database.
+-- Existing database tables are already present.
+-- This migration is marked as applied; it is not executed.

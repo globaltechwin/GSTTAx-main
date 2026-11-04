@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
-    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo } = body;
+    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl } = body;
 
     if (!name || !date) {
       return NextResponse.json({ error: "Name and date are required" }, { status: 400 });
@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
         esiNo: esiNo || null,
         address: address || null,
         epfNo: epfNo || null,
+        logoUrl: typeof logoUrl === "string" ? logoUrl : null,
       },
     });
 

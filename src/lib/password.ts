@@ -21,8 +21,8 @@ function deriveKey(
 }
 
 export async function hashPassword(password: string, enforcePolicy = true): Promise<string> {
-  if (password.length > 128 || (enforcePolicy && password.length < 12)) {
-    throw new Error("Password must be between 12 and 128 characters");
+  if (password.length > 128 || (enforcePolicy && password.length < 4)) {
+    throw new Error("Password must be between 4 and 128 characters");
   }
 
   const salt = randomBytes(16);

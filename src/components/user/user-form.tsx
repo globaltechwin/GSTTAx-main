@@ -13,6 +13,7 @@ const SIDEBAR_ITEMS = [
   { key: "companies", label: "Company" },
   { key: "to-companies", label: "To Company" },
   { key: "invoices", label: "Invoice" },
+  { key: "delivery-challans", label: "Delivery Challan" },
   { key: "purchases", label: "Purchase" },
   { key: "turnover-report", label: "Turnover Report" },
   { key: "referrals", label: "Referral" },

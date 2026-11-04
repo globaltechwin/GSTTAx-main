@@ -126,11 +126,11 @@ export async function POST(request: NextRequest) {
       !firstName.trim() ||
       !lastName.trim() ||
       !/^[A-Za-z0-9._-]{3,50}$/.test(username) ||
-      password.length < 12 ||
+      password.length < 4 ||
       password.length > 128
     ) {
       return NextResponse.json(
-        { error: "Names, a valid username, and a password of at least 12 characters are required" },
+        { error: "Names, a valid username, and a password of at least 4 characters are required" },
         { status: 400 }
       );
     }

@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo } = body;
+    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl } = body;
 
     const result = await prisma.company.updateMany({
       where: { id: parseInt(id), adminId: access.user.workspaceId },
@@ -48,6 +48,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         esiNo: esiNo || null,
         address: address || null,
         epfNo: epfNo || null,
+        logoUrl: typeof logoUrl === "string" ? logoUrl : null,
       },
     });
     if (!result.count) return NextResponse.json({ error: "Company not found" }, { status: 404 });

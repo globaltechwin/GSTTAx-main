@@ -20,6 +20,7 @@ model Company {
   esiNo             String?   @db.VarChar(50)
   address           String?   @db.Text
   epfNo             String?   @db.VarChar(50)
+  logoUrl           String?   @map("logo_url") @db.LongText
   state             String?   @db.VarChar(50)
   stateCode         String?   @map("state_code") @db.VarChar(5)
   bankHolderName    String?   @map("bank_holder_name") @db.VarChar(100)
@@ -95,6 +96,12 @@ model Invoice {
   igstRate           Decimal       @default(0.00) @map("igst_rate") @db.Decimal(5, 2)
   reverseCharge      Boolean       @default(false) @map("reverse_charge")
   invoiceNo          String?       @map("invoice_no") @db.VarChar(20)
+  documentType       String        @default("TAX_INVOICE") @map("document_type") @db.VarChar(20)
+  discountAmount     Decimal       @default(0.00) @map("discount_amount") @db.Decimal(12, 2)
+  kindAttn            String?       @map("kind_attn") @db.VarChar(150)
+  mobileNo            String?       @map("mobile_no") @db.VarChar(30)
+  poNumber            String?       @map("po_number") @db.VarChar(50)
+  poDate              DateTime?     @map("po_date") @db.Date
   challanNo          String?       @map("challan_no") @db.VarChar(50)
   transportMode      String?       @map("transport_mode") @db.VarChar(50)
   vehicleNo          String?       @map("vehicle_no") @db.VarChar(50)
@@ -131,6 +138,7 @@ model Invoice {
 
   @@index([adminId])
   @@index([adminId, invoiceNo])
+  @@index([adminId, documentType])
   @@index([billToCompanyId], map: "invoices_bill_to_company_id_fkey")
   @@index([companyId], map: "invoices_company_id_fkey")
   @@index([shipToCompanyId], map: "invoices_ship_to_company_id_fkey")
@@ -200,12 +208,15 @@ model User {
   workspaceAuditEntries AuditLog[]       @relation("AuditWorkspace")
   backupHistory         BackupHistory[]  @relation("BackupWorkspace")
   companies             Company[]        @relation("CompanyWorkspace")
+  deliveryChallans      DeliveryChallan[] @relation("DeliveryChallanWorkspace")
   exportHistory         ExportHistory[]  @relation("ExportWorkspace")
   importHistory         ImportHistory[]  @relation("ImportWorkspace")
   invoiceSequence       InvoiceSequence? @relation("WorkspaceInvoiceSequence")
   invoices              Invoice[]        @relation("InvoiceWorkspace")
   settings              WorkspaceSetting[]
   purchases             Purchase[]       @relation("PurchaseWorkspace")
+  vendors               Vendor[]         @relation("VendorWorkspace")
+  purchaseOrders        PurchaseOrder[]  @relation("PurchaseOrderWorkspace")
   referrals             Referral[]       @relation("ReferralWorkspace")
   sessions              Session[]
   toCompanies           ToCompany[]      @relation("ToCompanyWorkspace")
@@ -214,6 +225,93 @@ model User {
 
   @@index([adminId, role, status])
   @@map("users")
+}
+
+model Vendor {
+  id              Int      @id @default(autoincrement())
+  name            String   @db.VarChar(150)
+  industry        String?  @db.VarChar(100)
+  email           String?  @db.VarChar(150)
+  website         String?  @db.VarChar(200)
+  landline        String?  @db.VarChar(30)
+  mobile          String?  @db.VarChar(30)
+  addressLine1    String?  @map("address_line1") @db.VarChar(255)
+  addressLine2    String?  @map("address_line2") @db.VarChar(255)
+  gstnType        String   @default("REGISTERED_REGULAR") @map("gstn_type") @db.VarChar(40)
+  gstin           String?  @db.VarChar(20)
+  pan             String?  @db.VarChar(20)
+  currency        String   @default("INR") @db.VarChar(10)
+  country         String   @default("India") @db.VarChar(80)
+  state           String?  @db.VarChar(80)
+  pinCode         String?  @map("pin_code") @db.VarChar(12)
+  tcsEnabled      Boolean  @default(false) @map("tcs_enabled")
+  tcsRate         Decimal  @default(0) @map("tcs_rate") @db.Decimal(5,2)
+  openingDate     DateTime? @map("opening_date") @db.Date
+  openingType     String   @default("CREDIT") @map("opening_type") @db.VarChar(10)
+  openingAmount   Decimal  @default(0) @map("opening_amount") @db.Decimal(14,2)
+  portalEnabled   Boolean  @default(false) @map("portal_enabled")
+  status          String   @default("active") @db.VarChar(20)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  adminId         Int      @map("admin_id")
+  workspace       User     @relation("VendorWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
+  purchaseOrders  PurchaseOrder[]
+  @@unique([adminId, gstin])
+  @@index([adminId, name])
+  @@map("vendors")
+}
+
+model PurchaseOrder {
+  id              Int      @id @default(autoincrement())
+  poNumber        String   @map("po_number") @db.VarChar(40)
+  vendorId        Int      @map("vendor_id")
+  vendorName      String   @map("vendor_name") @db.VarChar(150)
+  gstin           String?  @db.VarChar(20)
+  contactName     String?  @map("contact_name") @db.VarChar(120)
+  orderDate       DateTime @map("order_date") @db.Date
+  quoteNo         String?  @map("quote_no") @db.VarChar(60)
+  quoteDate       DateTime? @map("quote_date") @db.Date
+  currency        String   @default("INR") @db.VarChar(10)
+  shippingAddress String?  @map("shipping_address") @db.Text
+  senderDetails   String?  @map("sender_details") @db.Text
+  subtotal        Decimal  @default(0) @db.Decimal(14,2)
+  discountAmount  Decimal  @default(0) @map("discount_amount") @db.Decimal(14,2)
+  igstAmount      Decimal  @default(0) @map("igst_amount") @db.Decimal(14,2)
+  cgstAmount      Decimal  @default(0) @map("cgst_amount") @db.Decimal(14,2)
+  sgstAmount      Decimal  @default(0) @map("sgst_amount") @db.Decimal(14,2)
+  cessAmount      Decimal  @default(0) @map("cess_amount") @db.Decimal(14,2)
+  grandTotal      Decimal  @default(0) @map("grand_total") @db.Decimal(14,2)
+  status          String   @default("DRAFT") @db.VarChar(20)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  adminId         Int      @map("admin_id")
+  workspace       User     @relation("PurchaseOrderWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
+  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  items           PurchaseOrderItem[]
+  @@unique([adminId, poNumber])
+  @@index([adminId, orderDate])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id             Int      @id @default(autoincrement())
+  purchaseOrderId Int     @map("purchase_order_id")
+  productName    String   @map("product_name") @db.VarChar(180)
+  description    String?  @db.VarChar(255)
+  itemType       String   @default("GOODS") @map("item_type") @db.VarChar(20)
+  hsnSac         String?  @map("hsn_sac") @db.VarChar(30)
+  quantity       Decimal  @default(1) @db.Decimal(12,3)
+  uom            String   @default("Nos") @db.VarChar(20)
+  unitRate       Decimal  @default(0) @map("unit_rate") @db.Decimal(14,2)
+  discountRate   Decimal  @default(0) @map("discount_rate") @db.Decimal(5,2)
+  taxRate        Decimal  @default(0) @map("tax_rate") @db.Decimal(5,2)
+  taxType        String   @default("AUTO") @map("tax_type") @db.VarChar(20)
+  taxableAmount  Decimal  @default(0) @map("taxable_amount") @db.Decimal(14,2)
+  taxAmount      Decimal  @default(0) @map("tax_amount") @db.Decimal(14,2)
+  totalAmount    Decimal  @default(0) @map("total_amount") @db.Decimal(14,2)
+  purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  @@index([purchaseOrderId])
+  @@map("purchase_order_items")
 }
 
 model Session {
@@ -306,6 +404,14 @@ model InvoiceSequence {
   @@map("invoice_sequences")
 }
 
+model ProformaSequence {
+  adminId      Int      @id @map("admin_id")
+  currentValue Int      @default(0) @map("current_value")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("proforma_sequences")
+}
+
 model AuditLog {
   id        Int      @id @default(autoincrement())
   actorId   Int      @map("actor_id")
@@ -340,3 +446,55 @@ model WorkspaceSetting {
   @@id([adminId, key])
   @@map("workspace_settings")
 }
+
+model DeliveryChallan {
+  id               Int                  @id @default(autoincrement())
+  adminId          Int                  @map("admin_id")
+  challanNumber    String               @map("challan_number") @db.VarChar(50)
+  challanDate      DateTime             @map("challan_date") @db.Date
+  deliveryDate     DateTime?            @map("delivery_date") @db.Date
+  companyId        Int?                 @map("company_id")
+  companyName      String               @map("company_name") @db.VarChar(200)
+  companyAddress   String?              @map("company_address") @db.Text
+  companyGstin     String?              @map("company_gstin") @db.VarChar(50)
+  companyPhone     String?              @map("company_phone") @db.VarChar(30)
+  recipientId      Int?                 @map("recipient_id")
+  recipientName    String               @map("recipient_name") @db.VarChar(200)
+  recipientAddress String?              @map("recipient_address") @db.Text
+  recipientGstin   String?              @map("recipient_gstin") @db.VarChar(50)
+  recipientState   String?              @map("recipient_state") @db.VarChar(100)
+  poNumber         String?              @map("po_number") @db.VarChar(100)
+  poDate           DateTime?            @map("po_date") @db.Date
+  currency         String               @default("INR") @db.VarChar(10)
+  stateOfSupply    String?              @map("state_of_supply") @db.VarChar(100)
+  vehicleNumber    String?              @map("vehicle_number") @db.VarChar(50)
+  transporterName  String?              @map("transporter_name") @db.VarChar(200)
+  reason           String?              @db.Text
+  remarks          String?              @db.Text
+  status           String               @default("DRAFT") @db.VarChar(20)
+  cancelReason     String?              @map("cancel_reason") @db.Text
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  workspace        User                 @relation("DeliveryChallanWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
+  items            DeliveryChallanItem[]
+
+  @@unique([adminId, challanNumber], map: "delivery_challans_admin_id_challan_number_key")
+  @@index([adminId, challanDate], map: "delivery_challans_admin_id_challan_date_idx")
+  @@index([companyId], map: "delivery_challans_company_id_idx")
+  @@index([recipientId], map: "delivery_challans_recipient_id_idx")
+  @@map("delivery_challans")
+}
+
+model DeliveryChallanItem {
+  id                Int             @id @default(autoincrement())
+  deliveryChallanId Int             @map("delivery_challan_id")
+  description       String          @db.VarChar(255)
+  hsn               String?         @db.VarChar(20)
+  quantity          String          @db.VarChar(30)
+  uom               String          @default("Pcs") @db.VarChar(20)
+  challan           DeliveryChallan @relation(fields: [deliveryChallanId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryChallanId], map: "delivery_challan_items_delivery_challan_id_idx")
+  @@map("delivery_challan_items")
+}
+

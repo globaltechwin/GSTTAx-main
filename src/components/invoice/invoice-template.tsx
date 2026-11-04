@@ -36,6 +36,7 @@ export interface InvoiceCompanyData {
   bankName: string | null;
   bankBranchName: string | null;
   website: string | null;
+  logoUrl?: string | null;
 }
 
 export interface InvoiceToCompanyData {
@@ -97,6 +98,12 @@ export interface InvoicePrintData {
   shipToStateCode: string | null;
   termsAndConditions: string | null;
   logoUrl: string | null;
+  documentType?: "TAX_INVOICE" | "PROFORMA";
+  discountAmount?: number | null;
+  kindAttn?: string | null;
+  mobileNo?: string | null;
+  poNumber?: string | null;
+  poDate?: string | null;
   phone: string | null;
   items: InvoiceItemData[];
 }
@@ -280,8 +287,11 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
     }
 
     const taxTotal = cgstTotal + sgstTotal + igstTotal;
-    const grandTotal = subtotal + taxTotal;
-    const roundedTotal = Math.round(grandTotal);
+    const discount = Math.min(Math.max(0, Number(invoice.discountAmount || 0)), subtotal);
+    const factor = subtotal > 0 ? (subtotal - discount) / subtotal : 0;
+    const adjustedTax = taxTotal * factor;
+    const grandTotal = subtotal - discount + adjustedTax;
+    const roundedTotal = Math.round(grandTotal * 100) / 100;
 
     return {
       subtotal,
@@ -289,7 +299,8 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
       cgstTotal,
       sgstTotal,
       igstTotal,
-      taxTotal,
+      taxTotal: adjustedTax,
+      discount,
       grandTotal: roundedTotal,
     };
   }, [invoice, taxType]);
@@ -434,7 +445,7 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                 color: "#000",
               }}
             >
-              TAX INVOICE
+              {invoice.documentType === "PROFORMA" ? "PROFORMA INVOICE" : "TAX INVOICE"}
             </td>
             <td
               style={{
@@ -572,11 +583,11 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   <tr>
-                    <td style={{ padding: "1px 0" }}>Invoice No.</td>
+                    <td style={{ padding: "1px 0" }}>{invoice.documentType === "PROFORMA" ? "Proforma No." : "Invoice No."}</td>
                     <td style={{ padding: "1px 0" }}>: {invoice.invoiceNo || invoice.orderId}</td>
                   </tr>
                   <tr>
-                    <td style={{ padding: "1px 0" }}>Invoice Date</td>
+                    <td style={{ padding: "1px 0" }}>{invoice.documentType === "PROFORMA" ? "Date" : "Invoice Date"}</td>
                     <td style={{ padding: "1px 0" }}>: {formatDate(invoice.date)}</td>
                   </tr>
                   <tr>
@@ -1938,6 +1949,9 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
             <td style={{ width: "50%", padding: "0" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
+                  {totals.discount > 0 && (
+                    <tr><td style={{ padding: "3px 8px", fontSize: "10px" }}>Discount Amount</td><td style={{ padding: "3px 8px", textAlign: "right", fontSize: "10px" }}>: ₹{formatIndianCurrency(totals.discount)}</td></tr>
+                  )}
                   {!isNoGST && (
                     <tr>
                       <td
@@ -1987,7 +2001,7 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                 }}
               >
                 <div style={{ fontWeight: "bold", fontSize: "10px", marginBottom: "3px" }}>
-                  Total Invoice Amount in words
+                  {invoice.documentType === "PROFORMA" ? "Amount Chargeable (In Words)" : "Total Invoice Amount in words"}
                 </div>
                 <div style={{ fontSize: "10px" }}>{numberToWords(totals.grandTotal)}</div>
               </div>

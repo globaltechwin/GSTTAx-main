@@ -11,12 +11,15 @@ import {
   Building2,
   Send,
   FileText,
+  Truck,
   Users,
   ArrowLeftRight,
   Settings,
   ChevronLeft,
   Receipt,
   ShoppingCart,
+  Package,
+  ClipboardList,
   UsersRound,
   BarChart3,
 } from "lucide-react";
@@ -26,7 +29,11 @@ const baseNavItems = [
   { key: "companies", label: "Company", href: "/dashboard/companies", icon: Building2 },
   { key: "to-companies", label: "To Company", href: "/dashboard/to-companies", icon: Send },
   { key: "invoices", label: "Invoice", href: "/dashboard/invoices", icon: FileText },
-  { key: "purchases", label: "Purchase", href: "/dashboard/purchases", icon: ShoppingCart },
+  { key: "proforma-invoices", label: "Proforma Invoice", href: "/dashboard/proforma-invoices", icon: FileText },
+  { key: "delivery-challans", label: "Delivery Challan", href: "/dashboard/delivery-challans", icon: Truck },
+  { key: "vendors", label: "Vendor Details", href: "/dashboard/vendors", icon: Package },
+  { key: "purchase-orders", label: "Purchase Order", href: "/dashboard/purchase-orders", icon: ClipboardList },
+  { key: "purchases", label: "Purchase Invoice", href: "/dashboard/purchases", icon: ShoppingCart },
   {
     key: "turnover-report",
     label: "Turnover Report",
@@ -60,7 +67,7 @@ export function Sidebar() {
 
   const visibleItems =
     user && user.role !== "ADMIN" && user.role !== "SUPERADMIN"
-      ? baseNavItems.filter((item) => user.sidebarAccess.includes(item.key))
+      ? baseNavItems.filter((item) => user.sidebarAccess.includes(item.key) || (item.key === "proforma-invoices" && user.sidebarAccess.includes("invoices")))
       : user?.role === "SUPERADMIN"
         ? superadminNavItems
         : baseNavItems;

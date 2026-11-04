@@ -9,7 +9,7 @@ const adminInput = z.object({
   firstName: z.string().trim().min(1).max(50),
   lastName: z.string().trim().min(1).max(50),
   username: z.string().regex(/^[A-Za-z0-9._-]{3,50}$/),
-  password: z.string().min(12).max(128),
+  password: z.string().min(4, "Password must be at least 4 characters").max(128),
   email: z.string().email().max(100).optional().or(z.literal("")),
   phone: z.string().max(20).optional(),
   modules: z.array(z.enum(MODULE_KEYS)).max(MODULE_KEYS.length),

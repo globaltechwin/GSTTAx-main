@@ -15,6 +15,7 @@ export const companySchema = z.object({
   esiNo: z.string().optional(),
   address: z.string().optional(),
   epfNo: z.string().optional(),
+  logoUrl: z.string().max(12000000).optional().nullable(),
 });
 
 export type CompanyFormData = z.infer<typeof companySchema>;
@@ -75,6 +76,12 @@ export const invoiceSchema = z.object({
   igstRate: z.number().finite().min(0).max(100).default(0),
   reverseCharge: z.boolean().default(false),
   invoiceNo: optionalInvoiceText(20),
+  documentType: z.enum(["TAX_INVOICE", "PROFORMA"]).default("TAX_INVOICE"),
+  discountAmount: z.number().finite().min(0).max(9999999999.99).default(0),
+  kindAttn: optionalInvoiceText(150),
+  mobileNo: optionalInvoiceText(30),
+  poNumber: optionalInvoiceText(50),
+  poDate: z.string().nullish(),
   challanNo: optionalInvoiceText(50),
   transportMode: optionalInvoiceText(50),
   vehicleNo: optionalInvoiceText(50),

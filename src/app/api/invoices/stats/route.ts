@@ -6,7 +6,8 @@ export async function GET(request: Request) {
   const access = await requireApiAccess(request, "invoices");
   if (access instanceof NextResponse) return access;
   try {
-    const where = workspaceWhere(access.user);
+    const documentType = new URL(request.url).searchParams.get("documentType") === "PROFORMA" ? "PROFORMA" : "TAX_INVOICE";
+    const where = { ...workspaceWhere(access.user), documentType };
     const [totalInvoices, totalAmount] = await Promise.all([
       prisma.invoice.count({ where }),
       prisma.invoice.aggregate({ where, _sum: { amount: true, total: true } }),

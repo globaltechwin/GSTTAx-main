@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { InvoiceTemplate, type InvoicePrintData } from "@/components/invoice/invoice-template";
+import { useParams, usePathname } from "next/navigation";
+import { type InvoicePrintData } from "@/components/invoice/invoice-template";
+import { YoInvoiceTemplate } from "@/components/invoice/yo-invoice-template";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer, RefreshCw, AlertCircle } from "lucide-react";
 import Link from "next/link";
@@ -10,9 +11,11 @@ import { useSession } from "@/components/auth/session-provider";
 
 export default function InvoicePreviewPage() {
   const params = useParams();
+  const pathname = usePathname();
+  const isProforma = pathname.includes("proforma-invoices");
   const id = params.id as string;
   const { user } = useSession();
-  const invoicePath = user.role === "SUPERADMIN" ? "/superadmin/invoices" : "/dashboard/invoices";
+  const invoicePath = user.role === "SUPERADMIN" ? (isProforma ? "/superadmin/proforma-invoices" : "/superadmin/invoices") : (isProforma ? "/dashboard/proforma-invoices" : "/dashboard/invoices");
   const homePath = user.role === "SUPERADMIN" ? "/superadmin" : "/dashboard";
 
   const [invoice, setInvoice] = useState<InvoicePrintData | null>(null);
@@ -51,7 +54,7 @@ export default function InvoicePreviewPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <RefreshCw className="text-primary size-8 animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading invoice...</p>
+          <p className="text-muted-foreground text-sm">Loading document...</p>
         </div>
       </div>
     );
@@ -66,7 +69,7 @@ export default function InvoicePreviewPage() {
           <Link href={invoicePath}>
             <Button variant="outline" size="sm">
               <ArrowLeft className="mr-2 size-4" />
-              Back to Invoices
+              Back to Documents
             </Button>
           </Link>
         </div>
@@ -88,7 +91,7 @@ export default function InvoicePreviewPage() {
           </Link>
           <span className="size-3.5">/</span>
           <span className="text-foreground font-medium">
-            Invoice #{invoice.invoiceNo || invoice.orderId}
+            {isProforma ? "Proforma" : "Invoice"} #{invoice.invoiceNo || invoice.orderId}
           </span>
         </nav>
 
@@ -102,9 +105,9 @@ export default function InvoicePreviewPage() {
               Back
             </Link>
             <div>
-              <h1 className="text-foreground text-xl font-bold tracking-tight">Invoice Preview</h1>
+              <h1 className="text-foreground text-xl font-bold tracking-tight">{isProforma ? "Proforma Invoice Preview" : "Tax Invoice Preview"}</h1>
               <p className="text-muted-foreground mt-0.5 text-sm">
-                Invoice #{invoice.invoiceNo || invoice.orderId} — Print or download as PDF
+                {isProforma ? "Proforma" : "Invoice"} #{invoice.invoiceNo || invoice.orderId} — Print or download as PDF
               </p>
               {user.role === "SUPERADMIN" && invoice.workspace && (
                 <p className="text-muted-foreground mt-1 text-xs">
@@ -127,7 +130,7 @@ export default function InvoicePreviewPage() {
 
       {/* Invoice preview */}
       <div className="no-print-none border-border/60 bg-card mx-auto max-w-[900px] overflow-x-auto rounded-2xl border p-4 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none">
-        <InvoiceTemplate invoice={invoice} />
+        <YoInvoiceTemplate invoice={invoice} />
       </div>
     </div>
   );

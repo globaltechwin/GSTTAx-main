@@ -121,9 +121,9 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       data.username = username;
     }
     if (password !== undefined && password !== "") {
-      if (typeof password !== "string" || password.length < 12 || password.length > 128) {
+      if (typeof password !== "string" || password.length < 4 || password.length > 128) {
         return NextResponse.json(
-          { error: "Password must be between 12 and 128 characters" },
+          { error: "Password must be between 4 and 128 characters" },
           { status: 400 }
         );
       }

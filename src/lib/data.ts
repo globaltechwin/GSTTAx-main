@@ -11,6 +11,7 @@ export interface Company {
   esiNo: string;
   address: string;
   epfNo: string;
+  logoUrl?: string | null;
   workspace?: WorkspaceSummary | null;
 }
 

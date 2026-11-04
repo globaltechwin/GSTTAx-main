@@ -23,6 +23,8 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
+    watch,
   } = useForm<CompanyFormData>({
     resolver: zodResolver(companySchema),
     defaultValues: {
@@ -37,6 +39,7 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
       esiNo: company?.esiNo ?? "",
       address: company?.address ?? "",
       epfNo: company?.epfNo ?? "",
+      logoUrl: company?.logoUrl ?? "",
     },
   });
 
@@ -54,9 +57,12 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
         esiNo: company.esiNo,
         address: company.address,
         epfNo: company.epfNo,
+        logoUrl: company.logoUrl ?? "",
       });
     }
   }, [company, reset]);
+
+  const logoUrl = watch("logoUrl");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -178,6 +184,18 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
               </select>
               <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2" />
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <Label htmlFor="companyLogo">Company Logo (used on invoices)</Label>
+        <div className="flex flex-wrap items-center gap-3">
+          {logoUrl ? <img src={logoUrl} alt="Company logo preview" className="h-16 w-24 rounded border bg-white object-contain p-1" /> : <div className="flex h-16 w-24 items-center justify-center rounded border text-xs text-muted-foreground">No logo</div>}
+          <div className="space-y-1">
+            <Input id="companyLogo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 2 * 1024 * 1024) { window.alert("Logo must be 2 MB or smaller"); event.target.value = ""; return; } const reader = new FileReader(); reader.onload = () => setValue("logoUrl", String(reader.result), { shouldDirty: true }); reader.readAsDataURL(file); }} />
+            <p className="text-xs text-muted-foreground">PNG, JPG, WEBP or SVG · maximum 2 MB</p>
+            {logoUrl && <button type="button" className="text-xs text-destructive" onClick={() => setValue("logoUrl", "", { shouldDirty: true })}>Remove logo</button>}
           </div>
         </div>
       </div>

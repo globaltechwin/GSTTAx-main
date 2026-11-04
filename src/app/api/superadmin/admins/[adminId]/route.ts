@@ -13,7 +13,7 @@ const adminUpdate = z
     lastName: z.string().trim().min(1).max(50).optional(),
     email: z.string().email().max(100).optional().or(z.literal("")),
     phone: z.string().max(20).optional(),
-    password: z.string().min(12).max(128).optional(),
+    password: z.string().min(4, "Password must be at least 4 characters").max(128).optional(),
     status: z.enum(["active", "inactive"]).optional(),
     modules: z.array(z.enum(MODULE_KEYS)).max(MODULE_KEYS.length).optional(),
   })

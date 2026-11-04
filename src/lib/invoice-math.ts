@@ -37,8 +37,8 @@ function roundTaxCents(taxableCents: number, rate: number): number {
 
 export function calculateInvoiceAmounts(
   rawItems: unknown,
-  defaults: { taxType: string; cgstRate: number; sgstRate: number; igstRate: number }
-): { items: NormalizedInvoiceItem[]; amount: number; total: number } {
+  defaults: { taxType: string; cgstRate: number; sgstRate: number; igstRate: number; discountAmount?: number }
+): { items: NormalizedInvoiceItem[]; amount: number; total: number; discountAmount: number } {
   if (!Array.isArray(rawItems) || rawItems.length === 0 || rawItems.length > 500) {
     throw new Error("At least one and no more than 500 invoice items are required");
   }
@@ -101,10 +101,14 @@ export function calculateInvoiceAmounts(
     };
   });
 
+  const requestedDiscountCents = Math.round(Math.max(0, Number(defaults.discountAmount || 0)) * 100);
+  if (requestedDiscountCents > subtotalCents) throw new Error("Discount cannot exceed subtotal");
+  const discountedTaxCents = subtotalCents > 0 ? Math.round(taxCents * (subtotalCents - requestedDiscountCents) / subtotalCents) : 0;
+
   if (
     subtotalCents > MAX_MONEY_CENTS ||
     taxCents > MAX_MONEY_CENTS ||
-    subtotalCents + taxCents > MAX_MONEY_CENTS
+    subtotalCents - requestedDiscountCents + discountedTaxCents > MAX_MONEY_CENTS
   ) {
     throw new Error("Invoice total is out of range");
   }
@@ -112,6 +116,7 @@ export function calculateInvoiceAmounts(
   return {
     items,
     amount: subtotalCents / 100,
-    total: Math.round((subtotalCents + taxCents) / 100),
+    total: Math.round((subtotalCents - requestedDiscountCents + discountedTaxCents)) / 100,
+    discountAmount: requestedDiscountCents / 100,
   };
 }

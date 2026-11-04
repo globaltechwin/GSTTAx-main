@@ -26,6 +26,7 @@ export async function GET(request: Request) {
           bankName: true,
           bankBranchName: true,
           website: true,
+          logoUrl: true,
         },
         orderBy: { name: "asc" },
       }),

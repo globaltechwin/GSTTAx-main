@@ -16,13 +16,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
+    const documentType = searchParams.get("documentType") === "PROFORMA" ? "PROFORMA" : "TAX_INVOICE";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
     const sortBy = searchParams.get("sortBy") || "createdAt";
     const sortOrder = searchParams.get("sortOrder") || "desc";
     const skip = (page - 1) * pageSize;
 
-    const where: Record<string, unknown> = { ...workspaceWhere(access.user) };
+    const where: Record<string, unknown> = { ...workspaceWhere(access.user), documentType };
 
     if (search) {
       where.OR = [
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
               bankName: true,
               bankBranchName: true,
               website: true,
+              logoUrl: true,
             },
           },
           toCompany: {
@@ -163,6 +165,12 @@ export async function POST(request: NextRequest) {
       termsAndConditions,
       logoUrl,
       phone,
+      documentType,
+      discountAmount,
+      kindAttn,
+      mobileNo,
+      poNumber,
+      poDate,
       items,
     } = parsed.data;
 
@@ -208,6 +216,7 @@ export async function POST(request: NextRequest) {
         cgstRate: rate(cgstRate, "CGST rate"),
         sgstRate: rate(sgstRate, "SGST rate"),
         igstRate: rate(igstRate, "IGST rate"),
+        discountAmount: Number(discountAmount || 0),
       });
     } catch (error) {
       return NextResponse.json(
@@ -218,29 +227,22 @@ export async function POST(request: NextRequest) {
 
     const createInvoice = () =>
       prisma.$transaction(async (transaction) => {
-        const sequence = await transaction.invoiceSequence.findUnique({
-          where: { adminId: workspaceId },
-          select: { currentValue: true },
-        });
-        if (!sequence) {
-          const existingNumbers = await transaction.invoice.findMany({
-            where: { adminId: workspaceId },
-            select: { invoiceNo: true },
-          });
-          const maximum = existingNumbers.reduce((value, record) => {
-            const parsedNumber = Number.parseInt(record.invoiceNo ?? "", 10);
-            return Number.isSafeInteger(parsedNumber) ? Math.max(value, parsedNumber) : value;
-          }, 0);
-          await transaction.invoiceSequence.create({
-            data: { adminId: workspaceId, currentValue: maximum },
-          });
+        let allocatedNumber: string;
+        if (documentType === "PROFORMA") {
+          const sequence = await transaction.proformaSequence.findUnique({ where: { adminId: workspaceId }, select: { currentValue: true } });
+          if (!sequence) await transaction.proformaSequence.create({ data: { adminId: workspaceId, currentValue: 0 } });
+          const allocated = await transaction.proformaSequence.update({ where: { adminId: workspaceId }, data: { currentValue: { increment: 1 } }, select: { currentValue: true } });
+          allocatedNumber = `PI-${allocated.currentValue}`;
+        } else {
+          const sequence = await transaction.invoiceSequence.findUnique({ where: { adminId: workspaceId }, select: { currentValue: true } });
+          if (!sequence) {
+            const existingNumbers = await transaction.invoice.findMany({ where: { adminId: workspaceId, documentType: "TAX_INVOICE" }, select: { invoiceNo: true } });
+            const maximum = existingNumbers.reduce((value, record) => { const parsed = Number.parseInt(record.invoiceNo ?? "", 10); return Number.isSafeInteger(parsed) ? Math.max(value, parsed) : value; }, 0);
+            await transaction.invoiceSequence.create({ data: { adminId: workspaceId, currentValue: maximum } });
+          }
+          const allocated = await transaction.invoiceSequence.update({ where: { adminId: workspaceId }, data: { currentValue: { increment: 1 } }, select: { currentValue: true } });
+          allocatedNumber = String(allocated.currentValue);
         }
-        const allocated = await transaction.invoiceSequence.update({
-          where: { adminId: workspaceId },
-          data: { currentValue: { increment: 1 } },
-          select: { currentValue: true },
-        });
-        const allocatedNumber = String(allocated.currentValue);
 
         return transaction.invoice.create({
           data: {
@@ -261,6 +263,12 @@ export async function POST(request: NextRequest) {
             igstRate: igstRate || 0,
             reverseCharge: reverseCharge || false,
             invoiceNo: allocatedNumber,
+            documentType: documentType || "TAX_INVOICE",
+            discountAmount: financials.discountAmount,
+            kindAttn: kindAttn || null,
+            mobileNo: mobileNo || null,
+            poNumber: poNumber || null,
+            poDate: poDate ? new Date(poDate) : null,
             challanNo: challanNo || null,
             transportMode: transportMode || null,
             vehicleNo: vehicleNo || null,

@@ -38,6 +38,7 @@ interface FullCompany {
   bankName: string | null;
   bankBranchName: string | null;
   website: string | null;
+  logoUrl?: string | null;
 }
 
 interface DropdownData {
@@ -144,7 +145,7 @@ function numberToWords(num: number): string {
   return result;
 }
 
-export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
+export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoiceId?: string; documentType?: "TAX_INVOICE" | "PROFORMA" }) {
   const router = useRouter();
   const pathname = usePathname();
   const portalBase = pathname.startsWith("/superadmin") ? "/superadmin" : "/dashboard";
@@ -155,6 +156,12 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
   });
   const [dropdownLoading, setDropdownLoading] = useState(true);
   const isEdit = !!invoiceId;
+  const isProforma = documentType === "PROFORMA";
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [kindAttn, setKindAttn] = useState("");
+  const [mobileNo, setMobileNo] = useState("");
+  const [poNumber, setPoNumber] = useState("");
+  const [poDate, setPoDate] = useState("");
 
   const [companyId, setCompanyId] = useState("");
   const [toCompanyId, setToCompanyId] = useState("");
@@ -215,7 +222,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
       try {
         const [dropdownRes, nextRes] = await Promise.all([
           fetch("/api/dropdown-data"),
-          fetch("/api/invoices/next-number"),
+          fetch(`/api/invoices/next-number?documentType=${documentType}`),
         ]);
         if (dropdownRes.ok && !cancelled) {
           setDropdownData(await dropdownRes.json());
@@ -233,7 +240,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [documentType]);
 
   useEffect(() => {
     if (!isEdit || !invoiceId) return;
@@ -281,6 +288,11 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
         setShipToStateCode(inv.shipToStateCode || "");
         setTermsAndConditions(inv.termsAndConditions || DEFAULT_TERMS_TEXT);
         setLogoUrl(inv.logoUrl || null);
+        setDiscountAmount(Number(inv.discountAmount || 0));
+        setKindAttn(inv.kindAttn || "");
+        setMobileNo(inv.mobileNo || "");
+        setPoNumber(inv.poNumber || "");
+        setPoDate(inv.poDate ? inv.poDate.split("T")[0] : "");
         setPhone(inv.phone || "");
         if (inv.items && inv.items.length > 0) {
           setItems(
@@ -313,6 +325,8 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
     () => dropdownData.companies.find((c) => c.id === Number(companyId)),
     [dropdownData.companies, companyId]
   );
+
+  useEffect(() => { if (companyId) setLogoUrl(selectedCompany?.logoUrl || null); }, [companyId, selectedCompany?.logoUrl]);
 
   const selectedToCompany = useMemo(
     () => dropdownData.toCompanies.find((c) => c.id === Number(toCompanyId)),
@@ -402,10 +416,15 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
     },
     { cgstTotal: 0, sgstTotal: 0, igstTotal: 0 }
   );
-  const taxTotal = cgstTotal + sgstTotal + igstTotal;
-  const grandTotal = subtotal + taxTotal;
-  const roundedTotal = Math.round(grandTotal);
-  const roundOff = roundedTotal - grandTotal;
+  const safeDiscount = Math.min(Math.max(0, Number(discountAmount) || 0), subtotal);
+  const discountFactor = subtotal > 0 ? (subtotal - safeDiscount) / subtotal : 0;
+  const discountedCgst = cgstTotal * discountFactor;
+  const discountedSgst = sgstTotal * discountFactor;
+  const discountedIgst = igstTotal * discountFactor;
+  const taxTotal = discountedCgst + discountedSgst + discountedIgst;
+  const grandTotal = subtotal - safeDiscount + taxTotal;
+  const roundedTotal = Math.round(grandTotal * 100) / 100;
+  const roundOff = 0;
 
   const buildInvoiceBody = () => {
     const totalRate = isCGST
@@ -415,6 +434,12 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
         : 0;
     return {
       orderId: invoiceNo,
+      documentType,
+      discountAmount: safeDiscount,
+      kindAttn,
+      mobileNo,
+      poNumber,
+      poDate: poDate || null,
       companyId: companyId ? Number(companyId) : null,
       toCompanyId: toCompanyId ? Number(toCompanyId) : null,
       billToCompanyId: billToCompanyId ? Number(billToCompanyId) : toCompanyId ? Number(toCompanyId) : null,
@@ -502,7 +527,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
       const res = await postInvoice(body);
       if (res.ok) {
         const created = await res.json();
-        router.push(`${portalBase}/invoices/${isEdit ? invoiceId : created.id}`);
+        router.push(`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${isEdit ? invoiceId : created.id}`);
       } else {
         const err = await res.json();
         setSubmitError(err.error || "Failed to create invoice");
@@ -527,7 +552,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
       if (res.ok) {
         const created = await res.json();
         const id = isEdit ? invoiceId : created.id;
-        window.open(`${portalBase}/invoices/${id}`, "_blank");
+        window.open(`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${id}`, "_blank");
       } else {
         const err = await res.json();
         setSubmitError(err.error || "Failed to create invoice");
@@ -553,18 +578,18 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
           Home
         </Link>
         <BreadcrumbSep className="size-3.5" />
-        <Link href={`${portalBase}/invoices`} className="hover:text-foreground transition-colors">
+        <Link href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}`} className="hover:text-foreground transition-colors">
           Invoices
         </Link>
         <BreadcrumbSep className="size-3.5" />
-        <span className="text-foreground font-medium">Add Invoice</span>
+        <span className="text-foreground font-medium">{isProforma ? "Add Proforma Invoice" : "Add Invoice"}</span>
       </nav>
 
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
-            href={`${portalBase}/invoices`}
+            href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}`}
             className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all"
           >
             <ArrowLeft className="size-4" />
@@ -576,10 +601,10 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
             </div>
             <div>
               <h1 className="text-foreground text-xl font-bold tracking-tight">
-                {isEdit ? "Edit Invoice" : "Add New Invoice"}
+                {isEdit ? (isProforma ? "Edit Proforma Invoice" : "Edit Invoice") : (isProforma ? "Add Proforma Invoice" : "Add New Invoice")}
               </h1>
               <p className="text-muted-foreground mt-0.5 text-sm">
-                Create a new invoice for your customer
+                {isProforma ? "Prepare a proforma invoice for your customer" : "Create a new invoice for your customer"}
               </p>
             </div>
           </div>
@@ -919,6 +944,8 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
             </div>
           </div>
         </div>
+
+        <div className="mt-6 border-t pt-6"><h3 className="text-foreground mb-4 text-sm font-semibold">{isProforma ? "Proforma Details" : "Buyer Order Details"}</h3><div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><Label>PO Number</Label><Input value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="Purchase order number" /></div><div className="space-y-2"><Label>PO Date</Label><Input type="date" value={poDate} onChange={(e) => setPoDate(e.target.value)} /></div>{isProforma && <><div className="space-y-2"><Label>Kind Attention</Label><Input value={kindAttn} onChange={(e) => setKindAttn(e.target.value)} placeholder="Contact person" /></div><div className="space-y-2"><Label>Mobile Number</Label><Input value={mobileNo} onChange={(e) => setMobileNo(e.target.value)} placeholder="Mobile number" /></div></>}</div></div>
 
         {/* Transport Details */}
         <div className="mt-6 border-t pt-6">
@@ -1374,6 +1401,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
         {/* Right: Totals */}
         <div className="border-border/60 bg-card rounded-2xl border p-6 shadow-sm">
           <div className="space-y-3">
+            <div className="flex items-center justify-between gap-4"><Label className="text-sm font-medium">Discount Amount:</Label><Input type="number" min="0" max={subtotal} step="0.01" className="max-w-40 text-right" value={discountAmount} onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))} /></div>
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Total Amount Before Tax:</Label>
               <span className="text-foreground text-sm font-semibold">
@@ -1381,29 +1409,30 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
               </span>
             </div>
 
-            {cgstTotal > 0 && (
+            <div className="flex items-center justify-between"><Label className="text-sm font-medium">Less : Discount:</Label><span className="text-sm">₹{formatIndianCurrency(safeDiscount)}</span></div>
+            {discountedCgst > 0 && (
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-blue-600">Add : CGST:</Label>
                 <span className="text-foreground text-sm">
-                  ₹{formatIndianCurrency(cgstTotal)}
+                  ₹{formatIndianCurrency(discountedCgst)}
                 </span>
               </div>
             )}
 
-            {sgstTotal > 0 && (
+            {discountedSgst > 0 && (
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-blue-600">Add : SGST:</Label>
                 <span className="text-foreground text-sm">
-                  ₹{formatIndianCurrency(sgstTotal)}
+                  ₹{formatIndianCurrency(discountedSgst)}
                 </span>
               </div>
             )}
 
-            {igstTotal > 0 && (
+            {discountedIgst > 0 && (
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-blue-600">Add : IGST:</Label>
                 <span className="text-foreground text-sm">
-                  ₹{formatIndianCurrency(igstTotal)}
+                  ₹{formatIndianCurrency(discountedIgst)}
                 </span>
               </div>
             )}
@@ -1441,7 +1470,7 @@ export function InvoiceForm({ invoiceId }: { invoiceId?: string }) {
 
       {/* Action Buttons */}
       <div className="border-border/60 bg-card flex items-center justify-end gap-3 rounded-2xl border p-4 shadow-sm">
-        <Link href={`${portalBase}/invoices`}>
+        <Link href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}`}>
           <Button type="button" variant="outline">
             Cancel
           </Button>
