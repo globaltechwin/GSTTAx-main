@@ -145,3 +145,58 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Failed to update Admin" }, { status: 500 });
   }
 }
+
+
+export async function DELETE(request: NextRequest, { params }: RouteContext) {
+  const access = await requireSuperadminApi(request);
+  if (access instanceof NextResponse) return access;
+  const id = readAdminId((await params).adminId);
+  if (!id) return NextResponse.json({ error: "Invalid Admin ID" }, { status: 400 });
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const admin = await prisma.user.findFirst({
+      where: { id, role: { in: ["admin", "ADMIN"] } },
+      select: { id: true, username: true },
+    });
+    if (!admin) return NextResponse.json({ error: "Admin not found" }, { status: 404 });
+    if (body?.confirmation !== admin.username) {
+      return NextResponse.json({ error: "Type the exact Admin username to confirm permanent deletion" }, { status: 400 });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const childUsers = await tx.user.findMany({ where: { adminId: id }, select: { id: true } });
+      const tenantUserIds = [id, ...childUsers.map((user) => user.id)];
+      await tx.auditLog.deleteMany({ where: { OR: [{ adminId: id }, { actorId: { in: tenantUserIds } }] } });
+      await tx.session.deleteMany({ where: { userId: { in: tenantUserIds } } });
+      await tx.deliveryChallan.deleteMany({ where: { adminId: id } });
+      await tx.purchaseOrder.deleteMany({ where: { adminId: id } });
+      await tx.invoice.deleteMany({ where: { adminId: id } });
+      await tx.purchase.deleteMany({ where: { adminId: id } });
+      await tx.vendor.deleteMany({ where: { adminId: id } });
+      await tx.referral.deleteMany({ where: { adminId: id } });
+      await tx.importHistory.deleteMany({ where: { adminId: id } });
+      await tx.exportHistory.deleteMany({ where: { adminId: id } });
+      await tx.backupHistory.deleteMany({ where: { adminId: id } });
+      await tx.toCompany.deleteMany({ where: { adminId: id } });
+      await tx.company.deleteMany({ where: { adminId: id } });
+      await tx.workspaceSetting.deleteMany({ where: { adminId: id } });
+      await tx.proformaSequence.deleteMany({ where: { adminId: id } });
+      await tx.invoiceSequence.deleteMany({ where: { adminId: id } });
+      await tx.user.deleteMany({ where: { adminId: id } });
+      await tx.user.delete({ where: { id } });
+      await tx.auditLog.create({
+        data: {
+          actorId: access.user.id,
+          action: "admin.deleted",
+          targetId: id,
+          details: JSON.stringify({ username: admin.username, permanent: true }),
+        },
+      });
+    });
+    return NextResponse.json({ success: true, deletedAdminId: id });
+  } catch (error) {
+    console.error("Failed to permanently delete Admin workspace", error);
+    return NextResponse.json({ error: "Unable to delete this workspace. Check related database records and try again." }, { status: 500 });
+  }
+}

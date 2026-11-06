@@ -44,9 +44,14 @@ function formatModule(module: string): string {
 
 export default function SuperadminAdminsPage() {
   const [admins, setAdmins] = useState<AdminWorkspace[]>([]);
-  const [modules, setModules] = useState<ModuleKey[]>([...MODULE_KEYS]);
+  const [createModules, setCreateModules] = useState<ModuleKey[]>([...MODULE_KEYS]);
+  const [editingModules, setEditingModules] = useState<ModuleKey[]>([]);
   const [form, setForm] = useState<AdminForm>(emptyForm);
   const [editing, setEditing] = useState<AdminWorkspace | null>(null);
+  const [editingDetailsAdmin, setEditingDetailsAdmin] = useState<AdminWorkspace | null>(null);
+  const [editingDetails, setEditingDetails] = useState<AdminForm>({ ...emptyForm, password: "" });
+  const [deleting, setDeleting] = useState<AdminWorkspace | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,12 +104,12 @@ export default function SuperadminAdminsPage() {
       const response = await fetch("/api/superadmin/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, modules }),
+        body: JSON.stringify({ ...form, modules: createModules }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to create Admin");
       setForm(emptyForm);
-      setModules([...MODULE_KEYS]);
+      setCreateModules([...MODULE_KEYS]);
       setNotice("Admin workspace created.");
       await loadAdmins();
     } catch (submitError) {
@@ -136,29 +141,79 @@ export default function SuperadminAdminsPage() {
   };
 
   const saveModules = async () => {
-    if (!editing) return;
+    // The module editor is tied to `editing`, not the separate Admin-details editor.
+    if (!editing?.id) {
+      setError("Select an Admin workspace before saving module access.");
+      return;
+    }
+    setSaving(true);
     setError(null);
     setNotice(null);
     try {
       const response = await fetch(`/api/superadmin/admins/${editing.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modules }),
+        body: JSON.stringify({ modules: editingModules }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Unable to update module access");
       setEditing(null);
-      setNotice("Workspace module access updated.");
+      setEditingModules([]);
+      setNotice(`Module access updated for @${editing.username}.`);
       await loadAdmins();
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Unable to update permissions");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const toggleModule = (module: ModuleKey) => {
-    setModules((current) =>
-      current.includes(module) ? current.filter((item) => item !== module) : [...current, module]
-    );
+  const toggleCreateModule = (module: ModuleKey) => {
+    setCreateModules((current) => current.includes(module) ? current.filter((item) => item !== module) : [...current, module]);
+  };
+
+  const toggleEditingModule = (module: ModuleKey) => {
+    setEditingModules((current) => current.includes(module) ? current.filter((item) => item !== module) : [...current, module]);
+  };
+
+  const startEdit = (admin: AdminWorkspace) => {
+    setEditing(null);
+    setEditingDetailsAdmin(admin);
+    setEditingDetails({ firstName: admin.firstName, lastName: admin.lastName, username: admin.username, email: admin.email || "", password: "" });
+  };
+
+  const saveAdminDetails = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingDetailsAdmin) return;
+    setSaving(true); setError(null); setNotice(null);
+    try {
+      const payload = {
+        firstName: editingDetails.firstName,
+        lastName: editingDetails.lastName,
+        username: editingDetails.username,
+        email: editingDetails.email,
+        ...(editingDetails.password ? { password: editingDetails.password } : {}),
+      };
+      const response = await fetch(`/api/superadmin/admins/${editingDetailsAdmin.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to update Admin details");
+      setNotice(editingDetails.password ? "Admin details and password updated." : "Admin details updated.");
+      setEditingDetailsAdmin(null); await loadAdmins();
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to update Admin details"); }
+    finally { setSaving(false); }
+  };
+
+  const deleteAdmin = async () => {
+    if (!deleting || deleteConfirmation !== deleting.username) return;
+    setSaving(true); setError(null); setNotice(null);
+    try {
+      const response = await fetch(`/api/superadmin/admins/${deleting.id}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirmation: deleteConfirmation }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Unable to delete Admin workspace");
+      setNotice(`Admin workspace @${deleting.username} and its tenant data were permanently deleted.`);
+      setDeleting(null); setDeleteConfirmation(""); if (editing?.id === deleting.id) setEditing(null); if (editingDetailsAdmin?.id === deleting.id) setEditingDetailsAdmin(null); await loadAdmins();
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to delete Admin workspace"); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -258,8 +313,8 @@ export default function SuperadminAdminsPage() {
                 >
                   <input
                     type="checkbox"
-                    checked={modules.includes(module)}
-                    onChange={() => toggleModule(module)}
+                    checked={createModules.includes(module)}
+                    onChange={() => toggleCreateModule(module)}
                   />
                   {formatModule(module)}
                 </label>
@@ -275,6 +330,20 @@ export default function SuperadminAdminsPage() {
           </button>
         </form>
       </section>
+
+      {editingDetailsAdmin && (
+        <section className="border-primary/30 bg-card rounded-xl border p-5 space-y-4">
+          <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Edit Admin: {editingDetailsAdmin.username}</h2><button type="button" onClick={() => setEditingDetailsAdmin(null)} className="border rounded-lg px-3 py-2 text-sm">Close</button></div>
+          <form onSubmit={saveAdminDetails} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <label className="text-sm">First name<input required maxLength={50} value={editingDetails.firstName} onChange={e=>setEditingDetails({...editingDetails,firstName:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
+            <label className="text-sm">Last name<input required maxLength={50} value={editingDetails.lastName} onChange={e=>setEditingDetails({...editingDetails,lastName:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
+            <label className="text-sm">Username<input required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]+" autoComplete="off" value={editingDetails.username} onChange={e=>setEditingDetails({...editingDetails,username:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
+            <label className="text-sm">Email<input type="email" value={editingDetails.email} onChange={e=>setEditingDetails({...editingDetails,email:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
+            <label className="text-sm">New password (leave blank to keep current)<input type="password" minLength={4} maxLength={128} autoComplete="new-password" value={editingDetails.password} onChange={e=>setEditingDetails({...editingDetails,password:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
+            <div className="flex items-end"><button disabled={saving} className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm disabled:opacity-50">{saving ? "Saving..." : "Save Admin details"}</button></div>
+          </form>
+        </section>
+      )}
 
       {editing && (
         <section className="border-primary/30 bg-card rounded-xl border p-5">
@@ -296,9 +365,10 @@ export default function SuperadminAdminsPage() {
               <button
                 type="button"
                 onClick={saveModules}
-                className="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium"
+                disabled={saving}
+                className="bg-primary text-primary-foreground rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-50"
               >
-                Save modules
+                {saving ? "Saving..." : "Save modules"}
               </button>
             </div>
           </div>
@@ -307,8 +377,8 @@ export default function SuperadminAdminsPage() {
               <label key={module} className="text-muted-foreground flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={modules.includes(module)}
-                  onChange={() => toggleModule(module)}
+                  checked={editingModules.includes(module)}
+                  onChange={() => toggleEditingModule(module)}
                 />
                 {formatModule(module)}
               </label>
@@ -367,20 +437,19 @@ export default function SuperadminAdminsPage() {
                       >
                         View workspace
                       </Link>
+                      <button type="button" onClick={() => startEdit(admin)} className="text-primary hover:bg-primary/5 rounded-md px-2 py-1 font-medium">Edit</button>
                       <button
                         type="button"
                         onClick={() => {
+                          setEditingDetailsAdmin(null);
                           setEditing(admin);
-                          setModules(
-                            admin.modules.filter((module): module is ModuleKey =>
-                              (MODULE_KEYS as readonly string[]).includes(module)
-                            )
-                          );
+                          setEditingModules(admin.modules.filter((module): module is ModuleKey => (MODULE_KEYS as readonly string[]).includes(module)));
                         }}
                         className="text-primary hover:bg-primary/5 rounded-md px-2 py-1 font-medium"
                       >
                         Modules
                       </button>
+                      <button type="button" onClick={() => { setDeleting(admin); setDeleteConfirmation(""); }} className="text-destructive rounded-md px-2 py-1 font-medium">Delete</button>
                       <button
                         type="button"
                         onClick={() => void changeStatus(admin)}
@@ -396,6 +465,17 @@ export default function SuperadminAdminsPage() {
           </tbody>
         </table>
       </section>
+
+      {deleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="delete-admin-title" className="bg-card w-full max-w-lg rounded-xl border p-6 shadow-xl">
+            <h2 id="delete-admin-title" className="text-lg font-semibold text-destructive">Permanently delete Admin workspace?</h2>
+            <p className="mt-2 text-sm">This permanently deletes <strong>@{deleting.username}</strong>, all users in this workspace, and its companies, invoices, purchases, vendors, purchase orders, delivery challans, referrals, settings, and history. This cannot be undone.</p>
+            <label className="mt-4 block text-sm">Type <strong>{deleting.username}</strong> to confirm<input value={deleteConfirmation} onChange={e=>setDeleteConfirmation(e.target.value)} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
+            <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={()=>{setDeleting(null);setDeleteConfirmation("");}} className="border rounded-lg px-3 py-2 text-sm">Cancel</button><button type="button" disabled={saving || deleteConfirmation !== deleting.username} onClick={()=>void deleteAdmin()} className="bg-destructive text-white rounded-lg px-3 py-2 text-sm disabled:opacity-40">{saving ? "Deleting..." : "Permanently delete"}</button></div>
+          </section>
+        </div>
+      )}
     </>
   );
 }

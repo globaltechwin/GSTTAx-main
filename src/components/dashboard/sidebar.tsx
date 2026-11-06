@@ -66,10 +66,10 @@ export function Sidebar() {
   const { user } = useSession();
 
   const visibleItems =
-    user && user.role !== "ADMIN" && user.role !== "SUPERADMIN"
-      ? baseNavItems.filter((item) => user.sidebarAccess.includes(item.key) || (item.key === "proforma-invoices" && user.sidebarAccess.includes("invoices")))
-      : user?.role === "SUPERADMIN"
-        ? superadminNavItems
+    user?.role === "SUPERADMIN"
+      ? superadminNavItems
+      : user
+        ? baseNavItems.filter((item) => user.sidebarAccess.includes(item.key))
         : baseNavItems;
 
   useEffect(() => {

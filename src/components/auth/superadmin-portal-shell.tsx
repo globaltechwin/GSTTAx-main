@@ -20,7 +20,7 @@ export function SuperadminPortalShell({ children }: { children: React.ReactNode 
             isCollapsed ? "md:pl-[68px]" : "md:pl-64"
           )}
         >
-          <div className="mx-auto max-w-7xl space-y-4 p-6">
+          <div className="mx-auto w-full max-w-none px-5">
             <p className="border-border/60 bg-muted/40 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
               Platform business records are shown across Admin workspaces in read-only mode.
               Platform Settings are saved separately from workspace settings.

@@ -57,7 +57,12 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     });
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-    return NextResponse.json({ ...user, sidebarAccess: safePermissions(user.sidebarAccess) });
+    const storedPermissions = safePermissions(user.sidebarAccess);
+    const effectivePermissions =
+      access.user.role === "ADMIN"
+        ? storedPermissions.filter((module) => access.user.sidebarAccess.includes(module))
+        : storedPermissions;
+    return NextResponse.json({ ...user, sidebarAccess: effectivePermissions });
   } catch (error) {
     console.error("Failed to fetch user", error);
     return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 });

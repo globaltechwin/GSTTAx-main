@@ -3,6 +3,7 @@ export const MODULE_KEYS = [
   "companies",
   "to-companies",
   "invoices",
+  "proforma-invoices",
   "delivery-challans",
   "purchases",
   "vendors",

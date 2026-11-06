@@ -82,8 +82,12 @@ export async function requireApiAccess(
     return NextResponse.json({ error: "Administrator access required" }, { status: 403 });
   }
 
-  if (role === "USER" && !user.sidebarAccess.includes(module)) {
-    return NextResponse.json({ error: "Permission denied" }, { status: 403 });
+  if (
+    (role === "ADMIN" || role === "USER") &&
+    !user.sidebarAccess.includes(module) &&
+    !(module === "invoices" && user.sidebarAccess.includes("proforma-invoices"))
+  ) {
+    return NextResponse.json({ error: "This module is not enabled for your workspace or account" }, { status: 403 });
   }
 
   if (role === "SUPERADMIN" && !allowsSuperadminApiRequest(request.method, action)) {

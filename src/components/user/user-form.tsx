@@ -4,23 +4,27 @@ import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userSchema, type UserFormData } from "@/lib/validations";
+import { MODULE_KEYS } from "@/lib/permissions";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const SIDEBAR_ITEMS = [
-  { key: "dashboard", label: "Dashboard" },
-  { key: "companies", label: "Company" },
-  { key: "to-companies", label: "To Company" },
-  { key: "invoices", label: "Invoice" },
-  { key: "delivery-challans", label: "Delivery Challan" },
-  { key: "purchases", label: "Purchase" },
-  { key: "turnover-report", label: "Turnover Report" },
-  { key: "referrals", label: "Referral" },
-  { key: "import-export", label: "Import/Export" },
-  { key: "users", label: "Users" },
-  { key: "settings", label: "Settings" },
-];
+const MODULE_LABELS: Record<string, string> = {
+  dashboard: "Dashboard",
+  companies: "Company",
+  "to-companies": "To Company",
+  invoices: "Invoice / Proforma Invoice",
+  "delivery-challans": "Delivery Challan",
+  purchases: "Purchase Invoice",
+  vendors: "Vendor Details",
+  "purchase-orders": "Purchase Order",
+  "turnover-report": "Turnover Report",
+  referrals: "Referral",
+  "import-export": "Import/Export",
+  users: "Users",
+  settings: "Settings",
+};
+const SIDEBAR_ITEMS = MODULE_KEYS.map((key) => ({ key, label: MODULE_LABELS[key] ?? key }));
 
 interface UserFormProps {
   user?: {
@@ -37,15 +41,17 @@ interface UserFormProps {
   onSubmit: (data: UserFormData) => void;
   onCancel: () => void;
   isLoading?: boolean;
+  availableModules?: string[];
 }
 
-export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps) {
+export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules = [...MODULE_KEYS] }: UserFormProps) {
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
     setValue,
+    setError,
     control,
   } = useForm({
     resolver: zodResolver(userSchema),
@@ -56,7 +62,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
       password: "",
       email: user?.email ?? "",
       phone: user?.phone ?? "",
-      role: (user?.role as "admin" | "user") ?? "user",
+      role: "user",
       status: (user?.status as "active" | "inactive") ?? "active",
       sidebarAccess: user?.sidebarAccess ?? [],
     },
@@ -72,7 +78,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
         password: "",
         email: user.email ?? "",
         phone: user.phone ?? "",
-        role: user.role as "admin" | "user",
+        role: "user",
         status: user.status as "active" | "inactive",
         sidebarAccess: user.sidebarAccess,
       });
@@ -86,8 +92,12 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
     setValue("sidebarAccess", next, { shouldDirty: true, shouldValidate: true });
   };
 
-  const handleFormSubmit = (data: Record<string, unknown>) => {
-    onSubmit({ ...data, sidebarAccess: selectedAccess } as UserFormData);
+  const handleFormSubmit = (data: UserFormData) => {
+    if (!user && (!data.password || data.password.length < 4)) {
+      setError("password", { type: "manual", message: "Password must be at least 4 characters" });
+      return;
+    }
+    onSubmit({ ...data, sidebarAccess: selectedAccess });
   };
 
   return (
@@ -123,6 +133,10 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
           <Input
             id="password"
             type="password"
+            required={!user}
+            minLength={user ? undefined : 4}
+            maxLength={128}
+            autoComplete="new-password"
             {...register("password")}
             aria-invalid={!!errors.password}
             placeholder={user ? "Leave blank to keep current" : ""}
@@ -147,7 +161,6 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
               className="border-border/60 bg-card focus:ring-primary/20 h-10 w-full appearance-none rounded-lg border py-2 pr-8 pl-3 text-sm transition-all focus:ring-2 focus:outline-none"
             >
               <option value="user">User</option>
-              <option value="admin">Admin</option>
             </select>
             <div className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
               <svg
@@ -200,7 +213,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading }: UserFormProps)
         <Label className="text-sm font-semibold">Sidebar Access</Label>
         <p className="text-muted-foreground text-xs">Select which modules this user can access</p>
         <div className="grid grid-cols-3 gap-3 md:grid-cols-5 lg:grid-cols-6">
-          {SIDEBAR_ITEMS.map((item) => (
+          {SIDEBAR_ITEMS.filter((item) => availableModules.includes(item.key)).map((item) => (
             <button
               key={item.key}
               type="button"

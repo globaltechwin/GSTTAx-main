@@ -131,16 +131,24 @@ export const invoiceSchema = z.object({
 
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 
-export const userSchema = z.object({
-  firstName: z.string().min(1, "First name is required").max(50, "First name is too long"),
-  lastName: z.string().min(1, "Last name is required").max(50, "Last name is too long"),
-  username: z.string().min(1, "Username is required").max(50, "Username is too long"),
-  password: z.string().min(4, "Password must be at least 4 characters").max(255, "Password is too long"),
+const userFields = {
+  firstName: z.string().trim().min(1, "First name is required").max(50, "First name is too long"),
+  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name is too long"),
+  username: z.string().trim().min(3, "Username must be at least 3 characters").max(50, "Username is too long").regex(/^[A-Za-z0-9._-]+$/, "Username contains invalid characters"),
   email: z.string().optional().refine((val) => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), "Invalid email"),
   phone: z.string().optional(),
   role: z.enum(["admin", "user"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
   sidebarAccess: z.array(z.string()).optional(),
+};
+
+// Creation requires a new password. Editing permits an empty password to keep
+// the existing hash, or a new password of 4–128 characters.
+export const userSchema = z.object({
+  ...userFields,
+  password: z.string()
+    .max(128, "Password must be 128 characters or fewer")
+    .refine((value) => value === "" || value.length >= 4, "Password must be at least 4 characters"),
 });
 
 export type UserFormData = z.infer<typeof userSchema>;

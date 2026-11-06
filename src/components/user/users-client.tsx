@@ -120,7 +120,12 @@ export function UsersClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      if (res.ok) { setDialog(null); fetchData(); }
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Unable to create user");
+      setDialog(null);
+      await fetchData();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to create user");
     } finally { setActionLoading(false); }
   };
 
@@ -133,7 +138,12 @@ export function UsersClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-      if (res.ok) { setDialog(null); fetchData(); }
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Unable to update user");
+      setDialog(null);
+      await fetchData();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Unable to update user");
     } finally { setActionLoading(false); }
   };
 
@@ -528,9 +538,7 @@ export function UsersClient() {
             <button onClick={(e) => { e.stopPropagation(); setDialog({ type: "edit", user }); setOpenMenuId(null); }} className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors">
               <Pencil className="text-muted-foreground size-4" />Edit User
             </button>
-            <button onClick={(e) => { e.stopPropagation(); setDialog({ type: "access", user }); setOpenMenuId(null); }} className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors">
-              <Key className="text-muted-foreground size-4" />User Access
-            </button>
+
             <button onClick={(e) => { e.stopPropagation(); handleToggleStatus(user); setOpenMenuId(null); }} disabled={actionLoading} className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50">
               {user.status === "active" ? <ShieldOff className="text-muted-foreground size-4" /> : <Shield className="text-muted-foreground size-4" />}
               {user.status === "active" ? "Deactivate" : "Activate"}
@@ -570,8 +578,8 @@ export function UsersClient() {
               )}
             </div>
 
-            {dialog.type === "add" && <UserForm onSubmit={handleAdd} onCancel={() => setDialog(null)} isLoading={actionLoading} />}
-            {dialog.type === "edit" && <UserForm user={dialog.user} onSubmit={handleEdit} onCancel={() => setDialog(null)} isLoading={actionLoading} />}
+            {dialog.type === "add" && <UserForm onSubmit={handleAdd} onCancel={() => setDialog(null)} isLoading={actionLoading} availableModules={sessionUser.sidebarAccess} />}
+            {dialog.type === "edit" && <UserForm user={dialog.user} onSubmit={handleEdit} onCancel={() => setDialog(null)} isLoading={actionLoading} availableModules={sessionUser.sidebarAccess} />}
 
             {dialog.type === "access" && (
               <AccessManager

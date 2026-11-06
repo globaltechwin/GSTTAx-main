@@ -93,7 +93,11 @@ export async function GET(request: NextRequest) {
       } catch {
         sidebarAccess = [];
       }
-      return { ...user, sidebarAccess };
+      const effectiveAccess =
+        access.user.role === "ADMIN"
+          ? sidebarAccess.filter((module) => access.user.sidebarAccess.includes(module))
+          : sidebarAccess;
+      return { ...user, sidebarAccess: effectiveAccess };
     });
 
     return NextResponse.json({ data: safeData, total, page, pageSize });

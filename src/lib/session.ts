@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { MODULE_KEYS } from "@/lib/permissions";
 import {
   getSessionCookieOptions,
   invalidateSessionToken,
@@ -47,7 +46,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashSessionToken(token) },
-    include: { user: { include: { admin: { select: { status: true } } } } },
+    include: { user: { include: { admin: { select: { status: true, sidebarAccess: true } } } } },
   });
 
   if (
@@ -82,8 +81,15 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     role: session.user.role.toUpperCase(),
     status: session.user.status,
     sidebarAccess:
-      session.user.role.toUpperCase() === "ADMIN" && sidebarAccess.length === 0
-        ? [...MODULE_KEYS]
+      session.user.role.toUpperCase() === "USER"
+        ? sidebarAccess.filter((module) => {
+            try {
+              const parentModules: unknown = JSON.parse(session.user.admin?.sidebarAccess || "[]");
+              return Array.isArray(parentModules) && parentModules.includes(module);
+            } catch {
+              return false;
+            }
+          })
         : sidebarAccess,
   };
 }
