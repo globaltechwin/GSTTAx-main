@@ -284,8 +284,6 @@ export default function SuperadminAdminsPage() {
               <input
                 required
                 type="password"
-                minLength={12}
-                maxLength={128}
                 autoComplete="new-password"
                 value={form.password}
                 onChange={(event) => setForm({ ...form, password: event.target.value })}
