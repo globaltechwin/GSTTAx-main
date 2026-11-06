@@ -73,6 +73,22 @@ export function ToCompanyView({ company, onClose }: ToCompanyViewProps) {
         </div>
 
         <div className="space-y-1">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">Email</p>
+          <p className="text-foreground text-sm font-medium">{company.email || "—"}</p>
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">Address</p>
+          <p className="text-foreground whitespace-pre-line text-sm font-medium">{company.address || "—"}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">State</p>
+          <p className="text-foreground text-sm font-medium">{company.state || "—"}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">State Code</p>
+          <p className="text-foreground text-sm font-medium">{company.stateCode || "—"}</p>
+        </div>
+        <div className="space-y-1">
           <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">ID</p>
           <p className="text-foreground text-sm font-medium">
             <span className="bg-muted/50 rounded-md px-2 py-0.5 font-mono text-xs">

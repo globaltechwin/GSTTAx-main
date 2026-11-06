@@ -72,6 +72,10 @@ export interface ToCompany {
   name: string;
   gstNo: string;
   vendorCode: string;
+  email?: string | null;
+  address?: string | null;
+  state?: string | null;
+  stateCode?: string | null;
   date: string;
   createdAt?: string;
   updatedAt?: string;

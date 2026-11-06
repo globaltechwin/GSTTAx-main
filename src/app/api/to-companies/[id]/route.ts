@@ -32,14 +32,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, gstNo, vendorCode, date } = body;
+    const { name, gstNo, vendorCode, email, address, state, stateCode, date } = body;
+    if (typeof name !== "string" || !name.trim() || typeof date !== "string" || Number.isNaN(new Date(date).getTime())) {
+      return NextResponse.json({ error: "A valid company name and date are required" }, { status: 400 });
+    }
 
     const updated = await prisma.toCompany.updateMany({
       where: { id: parseInt(id), adminId: access.user.workspaceId },
       data: {
-        name,
-        gstNo: gstNo || null,
-        vendorCode: vendorCode || null,
+        name: name.trim(),
+        gstNo: typeof gstNo === "string" && gstNo.trim() ? gstNo.trim() : null,
+        vendorCode: typeof vendorCode === "string" && vendorCode.trim() ? vendorCode.trim() : null,
+        email: typeof email === "string" && email.trim() ? email.trim() : null,
+        address: typeof address === "string" && address.trim() ? address.trim() : null,
+        state: typeof state === "string" && state.trim() ? state.trim() : null,
+        stateCode: typeof stateCode === "string" && stateCode.trim() ? stateCode.trim() : null,
         date: new Date(date),
       },
     });

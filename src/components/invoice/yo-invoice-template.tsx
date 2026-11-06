@@ -51,10 +51,10 @@ function SellerText({ invoice }: { invoice: InvoicePrintData }) {
 function BuyerText({ invoice }: { invoice: InvoicePrintData }) {
   const buyer = invoice.billToCompany || invoice.toCompany;
   return <>
-    <div style={{ fontWeight: 700 }}>{buyer?.name || invoice.billToName || ""}</div>
-    <div style={{ whiteSpace: "pre-line" }}>{buyer?.address || invoice.billToAddress || ""}</div>
-    <div>State: {buyer?.state || invoice.billToState || "—"} {buyer?.stateCode || invoice.billToStateCode || ""}</div>
-    <div>GSTN: {buyer?.gstNo || invoice.billToGstin || "—"}</div>
+    <div style={{ fontWeight: 700 }}>{invoice.billToName || buyer?.name || ""}</div>
+    <div style={{ whiteSpace: "pre-line" }}>{invoice.billToAddress || buyer?.address || ""}</div>
+    <div>State: {invoice.billToState || buyer?.state || "—"} {invoice.billToStateCode || buyer?.stateCode || ""}</div>
+    <div>GSTN: {invoice.billToGstin || buyer?.gstNo || "—"}</div>
   </>;
 }
 function Field({ name, value }: { name: string; value: ReactNode }) {

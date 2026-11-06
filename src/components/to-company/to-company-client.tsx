@@ -388,7 +388,7 @@ export function ToCompanyClient() {
           Home
         </a>
         <BreadcrumbSep className="size-3.5" />
-        <span className="text-foreground font-medium">To Company</span>
+        <span className="text-foreground font-medium">To Company (Sales)</span>
       </nav>
       {loadError && <p className="text-destructive rounded-lg border p-3 text-sm" role="alert">{loadError}</p>}
 
@@ -399,7 +399,7 @@ export function ToCompanyClient() {
             <Send className="text-primary size-5" />
           </div>
           <div>
-            <h1 className="text-foreground text-xl font-bold tracking-tight">To Company</h1>
+            <h1 className="text-foreground text-xl font-bold tracking-tight">To Company (Sales)</h1>
             <p className="text-muted-foreground mt-0.5 text-sm">
               Manage your vendor companies and their details
             </p>
@@ -429,7 +429,7 @@ export function ToCompanyClient() {
             className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
           >
             <Plus className="size-4" />
-            New To Company
+            New To Company (Sales)
           </button>}
         </div>
       </div>
@@ -635,7 +635,7 @@ export function ToCompanyClient() {
                           className="btn-gradient text-primary-foreground mt-2 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
                         >
                           <Plus className="size-4" />
-                          New To Company
+                          New To Company (Sales)
                         </button>
                       )}
                     </div>
@@ -767,10 +767,10 @@ export function ToCompanyClient() {
                   {dialog.type === "delete" && <Trash2 className="size-4.5 text-red-600" />}
                 </div>
                 <h2 className="text-foreground text-lg font-semibold">
-                  {dialog.type === "add" && "Add New To Company"}
-                  {dialog.type === "edit" && "Edit To Company"}
-                  {dialog.type === "view" && "To Company Details"}
-                  {dialog.type === "delete" && "Delete To Company"}
+                  {dialog.type === "add" && "Add New To Company (Sales)"}
+                  {dialog.type === "edit" && "Edit To Company (Sales)"}
+                  {dialog.type === "view" && "To Company (Sales) Details"}
+                  {dialog.type === "delete" && "Delete To Company (Sales)"}
                 </h2>
               </div>
               {!actionLoading && (

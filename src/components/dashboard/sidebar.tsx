@@ -27,11 +27,11 @@ import {
 const baseNavItems = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { key: "companies", label: "Company", href: "/dashboard/companies", icon: Building2 },
-  { key: "to-companies", label: "To Company", href: "/dashboard/to-companies", icon: Send },
+  { key: "to-companies", label: "To Company (Sales)", href: "/dashboard/to-companies", icon: Send },
   { key: "invoices", label: "Invoice", href: "/dashboard/invoices", icon: FileText },
   { key: "proforma-invoices", label: "Proforma Invoice", href: "/dashboard/proforma-invoices", icon: FileText },
   { key: "delivery-challans", label: "Delivery Challan", href: "/dashboard/delivery-challans", icon: Truck },
-  { key: "vendors", label: "Vendor Details", href: "/dashboard/vendors", icon: Package },
+  { key: "vendors", label: "Vendor Details (Purchasing From)", href: "/dashboard/vendors", icon: Package },
   { key: "purchase-orders", label: "Purchase Order", href: "/dashboard/purchase-orders", icon: ClipboardList },
   { key: "purchases", label: "Purchase Invoice", href: "/dashboard/purchases", icon: ShoppingCart },
   {
@@ -51,13 +51,25 @@ const baseNavItems = [
   { key: "settings", label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
-const superadminNavItems = [
-  { key: "superadmin-overview", label: "Overview", href: "/superadmin", icon: LayoutDashboard },
-  { key: "superadmin-admins", label: "Admin Workspaces", href: "/superadmin/admins", icon: UsersRound },
-  ...baseNavItems.map((item) => ({
-    ...item,
-    href: item.key === "dashboard" ? "/superadmin/dashboard" : item.href.replace("/dashboard/", "/superadmin/"),
-  })),
+const superadminAdminItems = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    href: "/superadmin/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    key: "superadmin-admins",
+    label: "Admin Workspaces",
+    href: "/superadmin/admins",
+    icon: UsersRound,
+  },
+  ...baseNavItems
+    .filter((item) => item.key !== "dashboard")
+    .map((item) => ({
+      ...item,
+      href: item.href.replace("/dashboard/", "/superadmin/"),
+    })),
 ];
 
 export function Sidebar() {
@@ -67,7 +79,7 @@ export function Sidebar() {
 
   const visibleItems =
     user?.role === "SUPERADMIN"
-      ? superadminNavItems
+      ? superadminAdminItems
       : user
         ? baseNavItems.filter((item) => user.sidebarAccess.includes(item.key))
         : baseNavItems;
@@ -117,8 +129,7 @@ export function Sidebar() {
               const isActive =
                 item.href === "/dashboard"
                   ? pathname === item.href || pathname.startsWith("/dashboard/")
-                  : item.href === "/superadmin"
-                    ? pathname === item.href
+        
                     : pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link

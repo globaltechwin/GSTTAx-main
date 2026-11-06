@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userSchema, type UserFormData } from "@/lib/validations";
@@ -12,11 +13,11 @@ import { cn } from "@/lib/utils";
 const MODULE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   companies: "Company",
-  "to-companies": "To Company",
+  "to-companies": "To Company (Sales)",
   invoices: "Invoice / Proforma Invoice",
   "delivery-challans": "Delivery Challan",
   purchases: "Purchase Invoice",
-  vendors: "Vendor Details",
+  vendors: "Vendor Details (Purchasing From)",
   "purchase-orders": "Purchase Order",
   "turnover-report": "Turnover Report",
   referrals: "Referral",
@@ -68,6 +69,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules
     },
   });
   const selectedAccess = useWatch({ control, name: "sidebarAccess" }) ?? [];
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -130,17 +132,29 @@ export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules
           <Label htmlFor="password">
             Password {!user && <span className="text-destructive">*</span>}
           </Label>
-          <Input
-            id="password"
-            type="password"
-            required={!user}
-            minLength={user ? undefined : 4}
-            maxLength={128}
-            autoComplete="new-password"
-            {...register("password")}
-            aria-invalid={!!errors.password}
-            placeholder={user ? "Leave blank to keep current" : ""}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              required={!user}
+              minLength={user ? undefined : 4}
+              maxLength={128}
+              autoComplete="new-password"
+              {...register("password")}
+              aria-invalid={!!errors.password}
+              placeholder={user ? "Leave blank to keep current" : ""}
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((shown) => !shown)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center px-3"
+            >
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
           {errors.password && <p className="text-destructive text-xs">{errors.password.message}</p>}
         </div>
         <div className="space-y-2">

@@ -530,7 +530,10 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
         router.push(`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${isEdit ? invoiceId : created.id}`);
       } else {
         const err = await res.json();
-        setSubmitError(err.error || "Failed to create invoice");
+        const issues = err.details?.fieldErrors
+          ? Object.entries(err.details.fieldErrors).flatMap(([field, messages]) => (messages as string[]).map((message) => `${field}: ${message}`)).join("; ")
+          : "";
+        setSubmitError(issues ? `${err.error || "Invalid invoice data"}: ${issues}` : (err.error || "Failed to create invoice"));
       }
     } catch {
       setSubmitError("Network error. Please try again.");
@@ -555,7 +558,10 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
         window.open(`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${id}`, "_blank");
       } else {
         const err = await res.json();
-        setSubmitError(err.error || "Failed to create invoice");
+        const issues = err.details?.fieldErrors
+          ? Object.entries(err.details.fieldErrors).flatMap(([field, messages]) => (messages as string[]).map((message) => `${field}: ${message}`)).join("; ")
+          : "";
+        setSubmitError(issues ? `${err.error || "Invalid invoice data"}: ${issues}` : (err.error || "Failed to create invoice"));
       }
     } catch {
       setSubmitError("Network error. Please try again.");
@@ -661,10 +667,24 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                 <select
                   id="toCompanyId"
                   value={toCompanyId}
-                  onChange={(e) => setToCompanyId(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setToCompanyId(value);
+                    const selected = dropdownData.toCompanies.find((company) => company.id === Number(value));
+                    if (!billToCompanyId) {
+                      setBillToName(selected?.name || ""); setBillToAddress(selected?.address || "");
+                      setBillToGstin(selected?.gstNo || ""); setBillToEmail(selected?.email || "");
+                      setBillToState(selected?.state || ""); setBillToStateCode(selected?.stateCode || "");
+                    }
+                    if (!shipToCompanyId) {
+                      setShipToName(selected?.name || ""); setShipToAddress(selected?.address || "");
+                      setShipToGstin(selected?.gstNo || ""); setShipToEmail(selected?.email || "");
+                      setShipToState(selected?.state || ""); setShipToStateCode(selected?.stateCode || "");
+                    }
+                  }}
                   className="border-border/60 bg-card focus:ring-primary/20 h-10 w-full appearance-none rounded-lg border py-2 pr-8 pl-3 text-sm focus:ring-2 focus:outline-none"
                 >
-                  <option value="">{dropdownLoading ? "Loading..." : "Select To Company"}</option>
+                  <option value="">{dropdownLoading ? "Loading..." : "Select To Company (Sales)"}</option>
                   {dropdownData.toCompanies.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -702,7 +722,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                   }}
                   className="border-border/60 bg-card focus:ring-primary/20 h-10 w-full appearance-none rounded-lg border py-2 pr-8 pl-3 text-sm focus:ring-2 focus:outline-none"
                 >
-                  <option value="">{dropdownLoading ? "Loading..." : "Select Bill To Company"}</option>
+                  <option value="">{dropdownLoading ? "Loading..." : "Select Bill To Company (Sales)"}</option>
                   {dropdownData.toCompanies.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -734,7 +754,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                   }}
                   className="border-border/60 bg-card focus:ring-primary/20 h-10 w-full appearance-none rounded-lg border py-2 pr-8 pl-3 text-sm focus:ring-2 focus:outline-none"
                 >
-                  <option value="">{dropdownLoading ? "Loading..." : "Select Ship To Company"}</option>
+                  <option value="">{dropdownLoading ? "Loading..." : "Select Ship To Company (Sales)"}</option>
                   {dropdownData.toCompanies.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}

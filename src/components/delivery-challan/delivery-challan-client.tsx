@@ -18,16 +18,31 @@ const emptyForm = () => ({ challanNumber: "", challanDate: today(), deliveryDate
 
 function PrintDocument({ challan, company }: { challan: Challan; company?: Company }) {
   return <article className="dc-print mx-auto w-full bg-white px-5 py-5 text-[13px] leading-[1.35] text-[#222]">
-    <header className="flex min-h-[76px] items-start justify-between gap-5">
-      <div className="min-w-0">
-        <div className="mb-1 text-[12px] font-bold">From</div>
-        <div className="text-[18px] font-bold">{challan.companyName || "—"}</div>
-        {challan.companyAddress && <div className="whitespace-pre-line text-[12px]">{challan.companyAddress}</div>}
-        {challan.companyGstin && <div className="text-[12px]">GSTIN: {challan.companyGstin}</div>}
-        {challan.companyPhone && <div className="text-[12px]">Phone: {challan.companyPhone}</div>}
-        {(company?.state || company?.stateCode) && <div className="text-[12px]">State: {company?.state || "—"}{company?.stateCode ? ` (State Code: ${company.stateCode})` : ""}</div>}
+    <div className="dc-company-header flex min-h-[76px] items-start justify-between gap-5">
+  <div className="min-w-0">
+    <div className="mb-1 text-[12px] font-bold">From</div>
+    <div className="text-[18px] font-bold">
+      {challan.companyName || "—"}
+    </div>
+    {challan.companyAddress && (
+      <div className="whitespace-pre-line text-[12px]">
+        {challan.companyAddress}
       </div>
-    </header>
+    )}
+    {challan.companyGstin && (
+      <div className="text-[12px]">GSTIN: {challan.companyGstin}</div>
+    )}
+    {challan.companyPhone && (
+      <div className="text-[12px]">Phone: {challan.companyPhone}</div>
+    )}
+    {(company?.state || company?.stateCode) && (
+      <div className="text-[12px]">
+        State: {company?.state || "—"}
+        {company?.stateCode ? ` (State Code: ${company.stateCode})` : ""}
+      </div>
+    )}
+  </div>
+</div>
     <h2 className="mb-2 mt-2 text-center text-[18px] font-bold">Delivery Challan</h2>
     <section className="grid min-h-[112px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] border border-black px-2 py-2 text-[12px]">
       <div className="pr-3"><b>To</b><div className="font-semibold">{challan.recipientName}</div><div className="whitespace-pre-line">{challan.recipientAddress || ""}</div><div>GSTN: {challan.recipientGstin || "—"}</div></div>

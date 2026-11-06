@@ -70,7 +70,7 @@ export function LoginForm() {
         const result = await response.json();
 
         if (result.success) {
-          router.push(result.user?.role === "SUPERADMIN" ? "/superadmin" : "/dashboard");
+          router.push(result.user?.role === "SUPERADMIN" ? "/superadmin/dashboard" : "/dashboard");
         } else {
           setServerError(result.error || "Invalid credentials");
         }

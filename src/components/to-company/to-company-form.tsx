@@ -31,6 +31,10 @@ export function ToCompanyForm({ company, onSubmit, onCancel, isLoading }: ToComp
       name: company?.name ?? "",
       gstNo: company?.gstNo ?? "",
       vendorCode: company?.vendorCode ?? "",
+      email: company?.email ?? "",
+      address: company?.address ?? "",
+      state: company?.state ?? "",
+      stateCode: company?.stateCode ?? "",
       date: company?.date ?? new Date().toISOString().split("T")[0],
     },
   });
@@ -41,6 +45,10 @@ export function ToCompanyForm({ company, onSubmit, onCancel, isLoading }: ToComp
         name: company.name,
         gstNo: company.gstNo,
         vendorCode: company.vendorCode,
+        email: company.email ?? "",
+        address: company.address ?? "",
+        state: company.state ?? "",
+        stateCode: company.stateCode ?? "",
         date: company.date,
       });
     }
@@ -93,6 +101,28 @@ export function ToCompanyForm({ company, onSubmit, onCancel, isLoading }: ToComp
             Vendor Code
           </Label>
           <Input id="vendorCode" placeholder="Enter vendor code" {...register("vendorCode")} />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+          <Input id="email" type="email" placeholder="Enter email address" {...register("email")} aria-invalid={!!errors.email} />
+          {errors.email && <p className="text-destructive text-xs" role="alert">{errors.email.message}</p>}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="address" className="text-sm font-medium">Address</Label>
+          <textarea id="address" rows={3} placeholder="Enter full address" {...register("address")} className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-md border px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="state" className="text-sm font-medium">State</Label>
+            <Input id="state" placeholder="Enter state" {...register("state")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stateCode" className="text-sm font-medium">State Code</Label>
+            <Input id="stateCode" placeholder="e.g. 33" {...register("stateCode")} />
+          </div>
         </div>
 
         <div className="space-y-2">

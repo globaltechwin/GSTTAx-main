@@ -1,1 +1,1 @@
-import type { Metadata } from "next";import {VendorsClient} from "@/components/vendor/vendors-client";export const metadata:Metadata={title:"Vendor Details | GSTTax",description:"Manage vendors"};export default function Page(){return <VendorsClient/>}
+import type { Metadata } from "next";import {VendorsClient} from "@/components/vendor/vendors-client";export const metadata:Metadata={title:"Vendor Details (Purchasing From) | GSTTax",description:"Manage vendors"};export default function Page(){return <VendorsClient/>}

@@ -21,9 +21,13 @@ export const companySchema = z.object({
 export type CompanyFormData = z.infer<typeof companySchema>;
 
 export const toCompanySchema = z.object({
-  name: z.string().min(1, "Company name is required").max(100, "Company name is too long"),
-  gstNo: z.string().optional(),
-  vendorCode: z.string().optional(),
+  name: z.string().trim().min(1, "Company name is required").max(100, "Company name is too long"),
+  gstNo: z.string().trim().max(50).optional().or(z.literal("")),
+  vendorCode: z.string().trim().max(50).optional().or(z.literal("")),
+  email: z.string().trim().max(100).optional().or(z.literal("")).refine((value) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), "Invalid email address"),
+  address: z.string().max(500).optional().or(z.literal("")),
+  state: z.string().trim().max(50).optional().or(z.literal("")),
+  stateCode: z.string().trim().max(5).optional().or(z.literal("")),
   date: z.string().min(1, "Date is required"),
 });
 

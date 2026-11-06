@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { MODULE_KEYS, type ModuleKey } from "@/lib/permissions";
 
@@ -54,6 +55,8 @@ export default function SuperadminAdminsPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -281,14 +284,19 @@ export default function SuperadminAdminsPage() {
             </label>
             <label className="text-muted-foreground space-y-1 text-sm">
               Password
-              <input
-                required
-                type="password"
-                autoComplete="new-password"
-                value={form.password}
-                onChange={(event) => setForm({ ...form, password: event.target.value })}
-                className="border-border bg-background text-foreground w-full rounded-md border px-3 py-2"
-              />
+              <div className="relative">
+                <input
+                  required
+                  type={showCreatePassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={(event) => setForm({ ...form, password: event.target.value })}
+                  className="border-border bg-background text-foreground w-full rounded-md border px-3 py-2 pr-10"
+                />
+                <button type="button" onClick={() => setShowCreatePassword((shown) => !shown)} aria-label={showCreatePassword ? "Hide password" : "Show password"} aria-pressed={showCreatePassword} className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center px-3">
+                  {showCreatePassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
             </label>
             <label className="text-muted-foreground space-y-1 text-sm">
               Email (optional)
@@ -337,7 +345,14 @@ export default function SuperadminAdminsPage() {
             <label className="text-sm">Last name<input required maxLength={50} value={editingDetails.lastName} onChange={e=>setEditingDetails({...editingDetails,lastName:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
             <label className="text-sm">Username<input required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]+" autoComplete="off" value={editingDetails.username} onChange={e=>setEditingDetails({...editingDetails,username:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
             <label className="text-sm">Email<input type="email" value={editingDetails.email} onChange={e=>setEditingDetails({...editingDetails,email:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
-            <label className="text-sm">New password (leave blank to keep current)<input type="password" minLength={4} maxLength={128} autoComplete="new-password" value={editingDetails.password} onChange={e=>setEditingDetails({...editingDetails,password:e.target.value})} className="border-border bg-background mt-1 w-full rounded-md border px-3 py-2" /></label>
+             <label className="text-sm">New password (leave blank to keep current)
+               <div className="relative mt-1">
+                 <input type={showEditPassword ? "text" : "password"} minLength={4} maxLength={128} autoComplete="new-password" value={editingDetails.password} onChange={e=>setEditingDetails({...editingDetails,password:e.target.value})} className="border-border bg-background w-full rounded-md border px-3 py-2 pr-10" />
+                 <button type="button" onClick={() => setShowEditPassword((shown) => !shown)} aria-label={showEditPassword ? "Hide password" : "Show password"} aria-pressed={showEditPassword} className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 flex items-center px-3">
+                   {showEditPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                 </button>
+               </div>
+             </label>
             <div className="flex items-end"><button disabled={saving} className="bg-primary text-primary-foreground rounded-lg px-4 py-2 text-sm disabled:opacity-50">{saving ? "Saving..." : "Save Admin details"}</button></div>
           </form>
         </section>

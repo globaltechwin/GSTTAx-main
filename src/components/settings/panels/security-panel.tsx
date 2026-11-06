@@ -48,6 +48,7 @@ export function SecurityPanel() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [sessionTimeout, setSessionTimeout] = useState("30");
   const [twoFactor, setTwoFactor] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState("5");
@@ -105,15 +106,26 @@ export function SecurityPanel() {
           </SettingField>
 
           <SettingField label="Confirm Password" required>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                handleChange();
-              }}
-              className="border-border/60 bg-card focus:ring-primary/20 h-10 w-full rounded-lg border px-3 text-sm transition-all focus:ring-2 focus:outline-none"
-            />
+            <div className="relative">
+              <input
+                type={showConfirm ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  handleChange();
+                }}
+                className="border-border/60 bg-card focus:ring-primary/20 h-10 w-full rounded-lg border px-3 pr-10 text-sm transition-all focus:ring-2 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirm((shown) => !shown)}
+                aria-label={showConfirm ? "Hide password" : "Show password"}
+                aria-pressed={showConfirm}
+                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-colors"
+              >
+                {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
           </SettingField>
 
           <button className="bg-primary/10 text-primary hover:bg-primary/20 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors">

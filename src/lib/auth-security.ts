@@ -83,7 +83,7 @@ export function getPortalRedirect(
   portal: "admin" | "superadmin"
 ): string | null {
   if (!role) return "/";
-  if (portal === "admin" && role === "SUPERADMIN") return "/superadmin";
+  if (portal === "admin" && role === "SUPERADMIN") return "/superadmin/dashboard";
   if (portal === "superadmin" && role !== "SUPERADMIN") return "/dashboard";
   return null;
 }
