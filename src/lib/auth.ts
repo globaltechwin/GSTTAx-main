@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUser, type SessionUser } from "@/lib/session";
 import { hashPassword, verifyLegacyPassword, verifyPassword } from "@/lib/password";
-import { MODULE_KEYS, type ModuleKey, type PermissionAction } from "@/lib/permissions";
+import { MODULE_KEYS, canPerform, parseActionPermissions, type ModuleKey, type PermissionAction } from "@/lib/permissions";
 import { isSameOriginRequest } from "@/lib/auth-security";
 import { allowsSuperadminApiRequest, getWorkspaceScope } from "@/lib/access-policy";
 
@@ -58,6 +58,7 @@ export async function authenticate(username: string, password: string): Promise<
       role: user.role.toUpperCase(),
       status: user.status,
       sidebarAccess,
+      actionPermissions: parseActionPermissions(user.actionPermissions, sidebarAccess),
     },
   };
 }
@@ -104,11 +105,21 @@ export async function requireApiAccess(
     );
   }
 
-  if (role === "USER" && action !== "view") {
-    return NextResponse.json(
-      { error: "This action has not been granted to your account" },
-      { status: 403 }
+  if (role === "USER") {
+    const invoiceRequest = module === "invoices";
+    const url = new URL(request.url);
+    const hasDocumentType = invoiceRequest && url.searchParams.has("documentType");
+    const permissionModule = invoiceRequest && url.searchParams.get("documentType") === "PROFORMA" ? "proforma-invoices" : module;
+    const invoiceActionAllowed = invoiceRequest && !hasDocumentType && (
+      canPerform(user.actionPermissions, "invoices", action) ||
+      canPerform(user.actionPermissions, "proforma-invoices", action)
     );
+    if (!canPerform(user.actionPermissions, permissionModule, action) && !invoiceActionAllowed) {
+      return NextResponse.json(
+        { error: `The ${action} permission is not granted for this module` },
+        { status: 403 }
+      );
+    }
   }
 
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method.toUpperCase())) {

@@ -12,6 +12,7 @@ import {
 import type { AppUser } from "@/lib/data";
 import type { UserFormData } from "@/lib/validations";
 import { cn } from "@/lib/utils";
+import { PERMISSION_ACTIONS, parseActionPermissions, type ActionPermissions, type PermissionAction } from "@/lib/permissions";
 import { UserForm } from "@/components/user/user-form";
 import { useSession } from "@/components/auth/session-provider";
 import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
@@ -555,24 +556,24 @@ export function UsersClient() {
       {dialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !actionLoading && setDialog(null)} />
-          <div className="border-border/60 bg-card relative mx-4 w-full max-w-2xl rounded-2xl border p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
+          <div className="border-border/60 bg-card relative mx-3 flex max-h-[96vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl border shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-blue-900 via-blue-800 to-blue-700 px-5 py-3 text-white">
               <div className="flex items-center gap-3">
-                <div className={cn("flex size-9 items-center justify-center rounded-xl", dialog.type === "add" && "bg-primary/10", dialog.type === "edit" && "bg-blue-500/10", dialog.type === "delete" && "bg-red-500/10", dialog.type === "access" && "bg-amber-500/10")}>
-                  {dialog.type === "add" && <Plus className="text-primary size-4.5" />}
-                  {dialog.type === "edit" && <Pencil className="size-4.5 text-blue-600" />}
-                  {dialog.type === "delete" && <Trash2 className="size-4.5 text-red-600" />}
-                  {dialog.type === "access" && <Key className="size-4.5 text-amber-600" />}
+                <div className={cn("flex size-9 items-center justify-center rounded-xl bg-white/15")}>
+                  {dialog.type === "add" && <Plus className="size-4.5 text-white" />}
+                  {dialog.type === "edit" && <Pencil className="size-4.5 text-white" />}
+                  {dialog.type === "delete" && <Trash2 className="size-4.5 text-white" />}
+                  {dialog.type === "access" && <Key className="size-4.5 text-white" />}
                 </div>
-                <h2 className="text-foreground text-lg font-semibold">
+                <div><h2 className="text-lg font-semibold text-white">
                   {dialog.type === "add" && "Add New User"}
                   {dialog.type === "edit" && "Edit User"}
                   {dialog.type === "delete" && "Delete User"}
                   {dialog.type === "access" && `User Access — ${dialog.user.firstName} ${dialog.user.lastName}`}
-                </h2>
+                </h2><p className="mt-0.5 text-xs text-blue-100">Update user details and configure module access with action permissions</p></div>
               </div>
               {!actionLoading && (
-                <button onClick={() => setDialog(null)} className="text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex size-8 items-center justify-center rounded-lg transition-colors">
+                <button onClick={() => setDialog(null)} className="inline-flex size-8 items-center justify-center rounded-lg text-white/90 transition-colors hover:bg-white/15 hover:text-white">
                   <X className="size-4" />
                 </button>
               )}
@@ -599,6 +600,7 @@ export function UsersClient() {
                         role: dialog.user.role,
                         status: dialog.user.status,
                         sidebarAccess: access,
+                        actionPermissions: dialog.user.actionPermissions,
                       }),
                     });
                     if (res.ok) { setDialog(null); fetchData(); }

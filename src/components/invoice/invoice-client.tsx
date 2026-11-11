@@ -37,6 +37,7 @@ import {
 import Link from "next/link";
 import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
 import { useSession } from "@/components/auth/session-provider";
+import { canPerform } from "@/lib/permissions";
 
 interface InvoiceCompany {
   id: number;
@@ -366,7 +367,7 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
       id: "actions",
       header: "Option",
       cell: (info) => {
-        if (user.role !== "ADMIN") return null;
+        if (user.role !== "ADMIN" && !canPerform(user.actionPermissions, isProforma ? "proforma-invoices" : "invoices", "update") && !canPerform(user.actionPermissions, isProforma ? "proforma-invoices" : "invoices", "delete")) return null;
         const invoice = info.row.original;
         return (
           <div className="relative">
@@ -409,15 +410,15 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
                   <Send className="text-muted-foreground size-4" />
                   Send Invoice
                 </button>
-                <Link
+                {(user.role === "ADMIN" || canPerform(user.actionPermissions, isProforma ? "proforma-invoices" : "invoices", "update")) && <Link
                   href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${invoice.id}/edit`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 >
                   <Pencil className="text-muted-foreground size-4" />
                   Edit
-                </Link>
-                <div className="bg-border/40 my-1 h-px" />
+                </Link>}
+                {(user.role === "ADMIN" || canPerform(user.actionPermissions, isProforma ? "proforma-invoices" : "invoices", "delete")) && <><div className="bg-border/40 my-1 h-px" />
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -428,7 +429,7 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
                 >
                   <Trash2 className="size-4" />
                   Delete
-                </button>
+                </button></>}
               </div>
             )}
           </div>
@@ -496,20 +497,20 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
             <Filter className="size-4" />
             Filters
           </button>
-          {user.role === "ADMIN" && (
-            <>
-              <button onClick={handleExport} className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
-                <Download className="size-4" />
-                Export
-              </button>
-              <Link
-                href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/new`}
-                className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
-              >
-                <Plus className="size-4" />
-                {isProforma ? "Add Proforma Invoice" : "Add Invoice"}
-              </Link>
-            </>
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, isProforma ? "proforma-invoices" : "invoices", "export")) && (
+            <button onClick={handleExport} className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
+              <Download className="size-4" />
+              Export
+            </button>
+          )}
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, isProforma ? "proforma-invoices" : "invoices", "create")) && (
+            <Link
+              href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/new`}
+              className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
+            >
+              <Plus className="size-4" />
+              {isProforma ? "Add Proforma Invoice" : "Add Invoice"}
+            </Link>
           )}
         </div>
       </div>
@@ -709,7 +710,7 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
                             : `Get started by creating your first ${isProforma ? "proforma invoice" : "invoice"}`}
                         </p>
                       </div>
-                      {!globalFilter && (
+                      {!globalFilter && (user.role === "ADMIN" || canPerform(user.actionPermissions, isProforma ? "proforma-invoices" : "invoices", "create")) && (
                         <Link
                           href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/new`}
                           className="btn-gradient text-primary-foreground mt-2 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"

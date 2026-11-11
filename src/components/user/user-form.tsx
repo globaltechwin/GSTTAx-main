@@ -5,7 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { userSchema, type UserFormData } from "@/lib/validations";
-import { MODULE_KEYS } from "@/lib/permissions";
+import { MODULE_KEYS, PERMISSION_ACTIONS, defaultActionPermissions, parseActionPermissions, type ActionPermissions, type PermissionAction } from "@/lib/permissions";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -14,9 +14,10 @@ const MODULE_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   companies: "Company",
   "to-companies": "To Company (Sales)",
-  invoices: "Invoice / Proforma Invoice",
+  invoices: "Invoice",
+  "proforma-invoices": "Proforma Invoice",
   "delivery-challans": "Delivery Challan",
-  purchases: "Purchase Invoice",
+  purchases: "Purchased Invoice",
   vendors: "Vendor Details (Purchasing From)",
   "purchase-orders": "Purchase Order",
   "turnover-report": "Turnover Report",
@@ -38,6 +39,7 @@ interface UserFormProps {
     role: string;
     status: string;
     sidebarAccess: string[];
+    actionPermissions?: ActionPermissions;
   };
   onSubmit: (data: UserFormData) => void;
   onCancel: () => void;
@@ -69,6 +71,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules
     },
   });
   const selectedAccess = useWatch({ control, name: "sidebarAccess" }) ?? [];
+  const [actions, setActions] = useState<ActionPermissions>(parseActionPermissions(user?.actionPermissions, user?.sidebarAccess ?? []));
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -84,7 +87,8 @@ export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules
         status: user.status as "active" | "inactive",
         sidebarAccess: user.sidebarAccess,
       });
-    }
+      setActions(parseActionPermissions(user.actionPermissions, user.sidebarAccess));
+    } else { setActions({}); }
   }, [user, reset]);
 
   const toggleAccess = (key: string) => {
@@ -92,6 +96,24 @@ export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules
       ? selectedAccess.filter((item) => item !== key)
       : [...selectedAccess, key];
     setValue("sidebarAccess", next, { shouldDirty: true, shouldValidate: true });
+    setActions((current) => {
+      const updated = { ...current };
+      if (next.includes(key)) updated[key as keyof ActionPermissions] = { view: true };
+      else delete updated[key as keyof ActionPermissions];
+      return updated;
+    });
+  };
+
+  const toggleAction = (module: string, action: PermissionAction, checked: boolean) => {
+    setActions((current) => {
+      const updated = { ...current, [module]: { ...(current[module as keyof ActionPermissions] ?? { view: true }), [action]: checked } };
+      if (action === "view" && !checked) {
+        const nextModules = selectedAccess.filter((item) => item !== module);
+        setValue("sidebarAccess", nextModules, { shouldDirty: true, shouldValidate: true });
+        delete updated[module as keyof ActionPermissions];
+      } else if (action !== "view" && checked) { updated[module as keyof ActionPermissions] = { ...updated[module as keyof ActionPermissions], view: true }; }
+      return updated;
+    });
   };
 
   const handleFormSubmit = (data: UserFormData) => {
@@ -99,7 +121,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules
       setError("password", { type: "manual", message: "Password must be at least 4 characters" });
       return;
     }
-    onSubmit({ ...data, sidebarAccess: selectedAccess });
+    onSubmit({ ...data, sidebarAccess: selectedAccess, actionPermissions: parseActionPermissions(actions, selectedAccess) });
   };
 
   return (
@@ -224,23 +246,15 @@ export function UserForm({ user, onSubmit, onCancel, isLoading, availableModules
       </div>
 
       <div className="space-y-3">
-        <Label className="text-sm font-semibold">Sidebar Access</Label>
-        <p className="text-muted-foreground text-xs">Select which modules this user can access</p>
-        <div className="grid grid-cols-3 gap-3 md:grid-cols-5 lg:grid-cols-6">
+        <div><Label className="text-sm font-semibold">Module Access & Action Permissions</Label><p className="text-muted-foreground text-xs">Enable each module, then select the actions this User can perform. View is required for every enabled module.</p></div>
+        <div className="space-y-3">
           {SIDEBAR_ITEMS.filter((item) => availableModules.includes(item.key)).map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => toggleAccess(item.key)}
-              className={cn(
-                "rounded-lg border px-3 py-2 text-sm font-medium transition-all",
-                selectedAccess.includes(item.key)
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border/60 text-muted-foreground hover:bg-muted/50"
-              )}
-            >
-              {item.label}
-            </button>
+            <section key={item.key} className="border-border/60 rounded-xl border p-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={selectedAccess.includes(item.key)} onChange={() => toggleAccess(item.key)} className="accent-primary size-4" />{item.label}</label>
+              {selectedAccess.includes(item.key) && <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                {PERMISSION_ACTIONS.filter((action) => action !== "import" || item.key === "import-export").filter((action) => action !== "export" || ["companies", "to-companies", "invoices", "proforma-invoices", "purchases", "referrals"].includes(item.key)).map((action) => <label key={action} className="text-muted-foreground flex items-center gap-2 text-xs capitalize"><input type="checkbox" checked={action === "view" ? actions[item.key as keyof ActionPermissions]?.view !== false : actions[item.key as keyof ActionPermissions]?.[action] === true} disabled={action === "view"} onChange={(event) => toggleAction(item.key, action, event.target.checked)} className="accent-primary size-3.5" />{action}</label>)}
+              </div>}
+            </section>
           ))}
         </div>
       </div>

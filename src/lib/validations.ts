@@ -16,7 +16,7 @@ export const companySchema = z.object({
   address: z.string().optional(),
   epfNo: z.string().optional(),
   logoUrl: z.string().max(12000000).optional().nullable(),
-});
+}); 
 
 export type CompanyFormData = z.infer<typeof companySchema>;
 
@@ -144,6 +144,7 @@ const userFields = {
   role: z.enum(["admin", "user"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
   sidebarAccess: z.array(z.string()).optional(),
+  actionPermissions: z.record(z.string(), z.record(z.string(), z.boolean())).optional(),
 };
 
 // Creation requires a new password. Editing permits an empty password to keep

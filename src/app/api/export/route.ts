@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAccess } from "@/lib/auth";
+import { canPerform, type ModuleKey } from "@/lib/permissions";
 import { exportData, type ExportModule, type ExportFormat } from "@/lib/services/export-service";
 import { prisma } from "@/lib/db";
 
@@ -16,8 +17,13 @@ const isExportFormat = (value: unknown): value is ExportFormat =>
   typeof value === "string" && VALID_FORMATS.includes(value as ExportFormat);
 
 export async function POST(request: NextRequest) {
-  const access = await requireApiAccess(request, "import-export", "export", true);
+  let preview: unknown;
+  try { preview = await request.clone().json(); } catch { return NextResponse.json({ error: "Invalid export request" }, { status: 400 }); }
+  const requestedModule = preview && typeof preview === "object" ? (preview as Record<string, unknown>).module : null;
+  if (!isExportModule(requestedModule)) return NextResponse.json({ error: "Invalid module" }, { status: 400 });
+  const access = await requireApiAccess(request, requestedModule as ModuleKey, "export");
   if (access instanceof NextResponse) return access;
+  if (access.user.role === "USER" && !canPerform(access.user.actionPermissions, requestedModule as ModuleKey, "export")) return NextResponse.json({ error: "Export permission is not granted for this module" }, { status: 403 });
   try {
     const body: unknown = await request.json();
     if (!body || typeof body !== "object") {

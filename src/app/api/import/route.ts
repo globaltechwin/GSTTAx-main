@@ -11,7 +11,7 @@ const VALID_TYPES = [".csv", ".xlsx", ".xls", ".json"];
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB
 
 export async function POST(request: NextRequest) {
-  const access = await requireApiAccess(request, "import-export", "import", true);
+  const access = await requireApiAccess(request, "import-export", "import", false);
   if (access instanceof NextResponse) return access;
   try {
     const formData = await request.formData();

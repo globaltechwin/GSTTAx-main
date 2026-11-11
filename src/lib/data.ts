@@ -214,6 +214,7 @@ export interface AppUser {
   role: string;
   status: string;
   sidebarAccess: string[];
+  actionPermissions?: Record<string, Record<string, boolean>>;
   createdAt: string;
   admin?: WorkspaceSummary | null;
 }

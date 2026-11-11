@@ -16,6 +16,8 @@ import { ToCompanyForm } from "@/components/to-company/to-company-form";
 import { ToCompanyView } from "@/components/to-company/to-company-view";
 import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
 import { useSession } from "@/components/auth/session-provider";
+import { canPerform } from "@/lib/permissions";
+import { downloadRowsAsCsv } from "@/lib/client-export";
 import {
   Send,
   Plus,
@@ -190,6 +192,8 @@ export function ToCompanyClient() {
     }
   };
 
+  const handleExport = () => downloadRowsAsCsv("to-companies.csv", data as unknown as Array<Record<string, unknown>>);
+
   const totalPages = Math.ceil(total / pageSize);
 
   const columns: ColumnDef<ToCompany>[] = [
@@ -301,7 +305,7 @@ export function ToCompanyClient() {
       id: "actions",
       header: "Option",
       cell: (info) => {
-        if (user.role !== "ADMIN") return null;
+        if (user.role !== "ADMIN" && !canPerform(user.actionPermissions, "to-companies", "update") && !canPerform(user.actionPermissions, "to-companies", "delete")) return null;
         const company = info.row.original;
         return (
           <div className="relative">
@@ -328,7 +332,7 @@ export function ToCompanyClient() {
                   <Eye className="text-muted-foreground size-4" />
                   View Details
                 </button>
-                <button
+                {(user.role === "ADMIN" || canPerform(user.actionPermissions, "to-companies", "update")) && <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setDialog({ type: "edit", company });
@@ -338,8 +342,8 @@ export function ToCompanyClient() {
                 >
                   <Pencil className="text-muted-foreground size-4" />
                   Edit Company
-                </button>
-                <div className="bg-border/40 my-1 h-px" />
+                </button>}
+                {(user.role === "ADMIN" || canPerform(user.actionPermissions, "to-companies", "delete")) && <><div className="bg-border/40 my-1 h-px" />
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -350,7 +354,7 @@ export function ToCompanyClient() {
                 >
                   <Trash2 className="size-4" />
                   Delete
-                </button>
+                </button></>}
               </div>
             )}
           </div>
@@ -418,13 +422,13 @@ export function ToCompanyClient() {
             <Filter className="size-4" />
             Filters
           </button>
-          {user.role === "ADMIN" && (
-            <button className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, "to-companies", "export")) && (
+            <button onClick={handleExport} disabled={data.length === 0} className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all disabled:opacity-40">
               <Download className="size-4" />
               Export
             </button>
           )}
-          {user.role === "ADMIN" && <button
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, "to-companies", "create")) && <button
             onClick={() => setDialog({ type: "add" })}
             className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
           >

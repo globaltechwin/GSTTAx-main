@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/db";
-import { MODULE_KEYS } from "@/lib/permissions";
+import { MODULE_KEYS, parseActionPermissions } from "@/lib/permissions";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         role: true,
         status: true,
         sidebarAccess: true,
+        actionPermissions: true,
         createdAt: true,
         admin: { select: { id: true, username: true, firstName: true, lastName: true } },
       },
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       access.user.role === "ADMIN"
         ? storedPermissions.filter((module) => access.user.sidebarAccess.includes(module))
         : storedPermissions;
-    return NextResponse.json({ ...user, sidebarAccess: effectivePermissions });
+    return NextResponse.json({ ...user, sidebarAccess: effectivePermissions, actionPermissions: parseActionPermissions(user.actionPermissions, effectivePermissions) });
   } catch (error) {
     console.error("Failed to fetch user", error);
     return NextResponse.json({ error: "Failed to fetch user" }, { status: 500 });
@@ -95,7 +96,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     });
     if (!existing) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    const { firstName, lastName, username, password, email, phone, status, sidebarAccess } = values;
+    const { firstName, lastName, username, password, email, phone, status, sidebarAccess, actionPermissions } = values;
     const data: {
       firstName?: string;
       lastName?: string;
@@ -105,6 +106,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       phone?: string | null;
       status?: string;
       sidebarAccess?: string;
+      actionPermissions?: string;
     } = {};
 
     if (firstName !== undefined) {
@@ -171,6 +173,14 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       }
       data.sidebarAccess = JSON.stringify(sidebarAccess);
     }
+    if (actionPermissions !== undefined) {
+      const effectiveModules = (sidebarAccess as string[] | undefined) ?? safePermissions((await prisma.user.findUnique({ where: { id }, select: { sidebarAccess: true } }))?.sidebarAccess ?? null);
+      const safeActions = parseActionPermissions(actionPermissions, effectiveModules);
+      for (const [module, actions] of Object.entries(safeActions)) {
+        if (!effectiveModules.includes(module) || !actions.view) return NextResponse.json({ error: "Every enabled module must include View access" }, { status: 400 });
+      }
+      data.actionPermissions = JSON.stringify(safeActions);
+    }
 
     const user = await prisma.user.update({
       where: { id },
@@ -185,12 +195,14 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         role: true,
         status: true,
         sidebarAccess: true,
+        actionPermissions: true,
         createdAt: true,
       },
     });
     return NextResponse.json({
       ...user,
       sidebarAccess: safePermissions(user.sidebarAccess),
+      actionPermissions: parseActionPermissions(user.actionPermissions, safePermissions(user.sidebarAccess)),
     });
   } catch (error) {
     console.error("Failed to update user", error);

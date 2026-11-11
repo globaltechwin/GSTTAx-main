@@ -16,6 +16,8 @@ import { CompanyForm } from "@/components/company/company-form";
 import { CompanyView } from "@/components/company/company-view";
 import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
 import { useSession } from "@/components/auth/session-provider";
+import { canPerform } from "@/lib/permissions";
+import { downloadRowsAsCsv } from "@/lib/client-export";
 import {
   Building2,
   Plus,
@@ -228,6 +230,8 @@ export function CompaniesClient() {
     }
   };
 
+  const handleExport = () => downloadRowsAsCsv("companies.csv", data as unknown as Array<Record<string, unknown>>);
+
   const totalPages = Math.ceil(total / pageSize);
 
   const columns: ColumnDef<Company>[] = [
@@ -389,7 +393,7 @@ export function CompaniesClient() {
       id: "actions",
       header: "Option",
       cell: (info) => {
-        if (user.role !== "ADMIN") return null;
+        if (user.role !== "ADMIN" && !canPerform(user.actionPermissions, "companies", "update") && !canPerform(user.actionPermissions, "companies", "delete")) return null;
         const company = info.row.original;
         return (
           <div className="relative">
@@ -416,7 +420,7 @@ export function CompaniesClient() {
                   <Eye className="text-muted-foreground size-4" />
                   View Details
                 </button>
-                <button
+                {(user.role === "ADMIN" || canPerform(user.actionPermissions, "companies", "update")) && <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setDialog({ type: "edit", company });
@@ -426,8 +430,8 @@ export function CompaniesClient() {
                 >
                   <Pencil className="text-muted-foreground size-4" />
                   Edit Company
-                </button>
-                <button
+                </button>}
+                {(user.role === "ADMIN" || canPerform(user.actionPermissions, "companies", "update")) && <button
                   onClick={(e) => {
                     e.stopPropagation();
                     handleToggleStatus(company);
@@ -442,8 +446,8 @@ export function CompaniesClient() {
                     <ShieldCheck className="text-muted-foreground size-4" />
                   )}
                   {company.status === "active" ? "Deactivate" : "Activate"}
-                </button>
-                <div className="bg-border/40 my-1 h-px" />
+                </button>}
+                {(user.role === "ADMIN" || canPerform(user.actionPermissions, "companies", "delete")) && <><div className="bg-border/40 my-1 h-px" />
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -454,7 +458,7 @@ export function CompaniesClient() {
                 >
                   <Trash2 className="size-4" />
                   Delete
-                </button>
+                </button></>}
               </div>
             )}
           </div>
@@ -522,13 +526,13 @@ export function CompaniesClient() {
             <Filter className="size-4" />
             Filters
           </button>
-          {user.role === "ADMIN" && (
-            <button className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all">
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, "companies", "export")) && (
+            <button onClick={handleExport} disabled={data.length === 0} className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transition-all disabled:opacity-40">
               <Download className="size-4" />
               Export
             </button>
           )}
-          {user.role === "ADMIN" && <button
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, "companies", "create")) && <button
             onClick={() => setDialog({ type: "add" })}
             className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
           >

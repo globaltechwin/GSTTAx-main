@@ -200,6 +200,7 @@ model User {
   role                  String           @default("user") @db.VarChar(20)
   status                String           @default("active") @db.VarChar(20)
   sidebarAccess         String?          @map("sidebar_access") @db.Text
+  actionPermissions     String?          @default("{}") @map("action_permissions") @db.Text
   createdAt             DateTime         @default(now()) @map("created_at")
   updatedAt             DateTime         @updatedAt @map("updated_at")
   adminId               Int?             @map("admin_id")

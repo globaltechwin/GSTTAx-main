@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAccess, workspaceWhere } from "@/lib/auth";
+import { canPerform } from "@/lib/permissions";
 import { calculateInvoiceAmounts } from "@/lib/invoice-math";
 import { prisma } from "@/lib/db";
 import { invoiceSchema } from "@/lib/validations";
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const documentType = searchParams.get("documentType") === "PROFORMA" ? "PROFORMA" : "TAX_INVOICE";
+    if (access.user.role === "USER" && !canPerform(access.user.actionPermissions, documentType === "PROFORMA" ? "proforma-invoices" : "invoices", "view")) return NextResponse.json({ error: "View permission is not granted for this document type" }, { status: 403 });
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
     const sortBy = searchParams.get("sortBy") || "createdAt";
@@ -126,6 +128,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (access.user.role === "USER" && !canPerform(access.user.actionPermissions, parsed.data.documentType === "PROFORMA" ? "proforma-invoices" : "invoices", "create")) return NextResponse.json({ error: "Create permission is not granted for this document type" }, { status: 403 });
     const {
       companyId,
       toCompanyId,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { prisma } from "@/lib/db";
-import { MODULE_KEYS } from "@/lib/permissions";
+import { MODULE_KEYS, parseActionPermissions } from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
   const access = await requireApiAccess(request, "users", "view", true);
@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
           role: true,
           status: true,
           sidebarAccess: true,
+          actionPermissions: true,
           createdAt: true,
           admin: { select: { id: true, username: true, firstName: true, lastName: true } },
         },
@@ -97,7 +98,8 @@ export async function GET(request: NextRequest) {
         access.user.role === "ADMIN"
           ? sidebarAccess.filter((module) => access.user.sidebarAccess.includes(module))
           : sidebarAccess;
-      return { ...user, sidebarAccess: effectiveAccess };
+      const actionPermissions = parseActionPermissions(user.actionPermissions, effectiveAccess);
+      return { ...user, sidebarAccess: effectiveAccess, actionPermissions };
     });
 
     return NextResponse.json({ data: safeData, total, page, pageSize });
@@ -120,7 +122,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
     const values = body as Record<string, unknown>;
-    const { firstName, lastName, username, password, email, phone, sidebarAccess } = values;
+    const { firstName, lastName, username, password, email, phone, sidebarAccess, actionPermissions } = values;
 
     if (
       typeof firstName !== "string" ||
@@ -172,6 +174,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const safeActionPermissions = parseActionPermissions(actionPermissions, requestedModules);
+    if (actionPermissions !== undefined) {
+      for (const [module, actions] of Object.entries(safeActionPermissions)) {
+        if (!requestedModules.includes(module) || !actions.view) return NextResponse.json({ error: "Every enabled module must include View access" }, { status: 400 });
+      }
+    }
+
     const existing = await prisma.user.findUnique({ where: { username }, select: { id: true } });
     if (existing) {
       return NextResponse.json({ error: "Username already exists" }, { status: 409 });
@@ -189,6 +198,7 @@ export async function POST(request: NextRequest) {
         role: "user",
         status: "active",
         sidebarAccess: JSON.stringify(requestedModules),
+        actionPermissions: JSON.stringify(safeActionPermissions),
       },
       select: {
         id: true,
@@ -200,12 +210,13 @@ export async function POST(request: NextRequest) {
         role: true,
         status: true,
         sidebarAccess: true,
+        actionPermissions: true,
         createdAt: true,
       },
     });
 
     return NextResponse.json(
-      { ...user, sidebarAccess: requestedModules },
+      { ...user, sidebarAccess: requestedModules, actionPermissions: safeActionPermissions },
       { status: 201 }
     );
   } catch (error) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiAccess, workspaceWhere } from "@/lib/auth";
+import { canPerform } from "@/lib/permissions";
 import { calculateInvoiceAmounts } from "@/lib/invoice-math";
 import { prisma } from "@/lib/db";
 import { invoiceSchema } from "@/lib/validations";
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
+    if (access.user.role === "USER" && !canPerform(access.user.actionPermissions, invoice.documentType === "PROFORMA" ? "proforma-invoices" : "invoices", "view")) return NextResponse.json({ error: "View permission is not granted for this document type" }, { status: 403 });
 
     return NextResponse.json(invoice);
   } catch (err) {
@@ -102,6 +104,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid invoice data", details: parsed.error.flatten() }, { status: 400 });
     }
+    if (access.user.role === "USER" && !canPerform(access.user.actionPermissions, parsed.data.documentType === "PROFORMA" ? "proforma-invoices" : "invoices", "update")) return NextResponse.json({ error: "Update permission is not granted for this document type" }, { status: 403 });
     const {
       orderId,
       companyId,
@@ -300,6 +303,9 @@ export async function DELETE(
     if (!Number.isSafeInteger(invoiceId) || invoiceId < 1) {
       return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
     }
+    const existing = await prisma.invoice.findFirst({ where: { id: invoiceId, adminId: access.user.workspaceId }, select: { documentType: true } });
+    if (!existing) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    if (access.user.role === "USER" && !canPerform(access.user.actionPermissions, existing.documentType === "PROFORMA" ? "proforma-invoices" : "invoices", "delete")) return NextResponse.json({ error: "Delete permission is not granted for this document type" }, { status: 403 });
     const result = await prisma.invoice.deleteMany({
       where: { id: invoiceId, adminId: access.user.workspaceId },
     });

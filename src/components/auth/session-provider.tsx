@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { requestLogout } from "@/lib/logout-client";
 
@@ -12,6 +12,7 @@ interface SessionUser {
   username: string;
   role: string;
   sidebarAccess: string[];
+  actionPermissions: Record<string, Record<string, boolean>>;
 }
 
 interface SessionContextValue {
@@ -28,7 +29,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const response = await fetch("/api/auth/session", { cache: "no-store" });
     if (!response.ok) {
       setUser(null);
@@ -37,7 +38,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     const result: { user: SessionUser } = await response.json();
     setUser(result.user);
-  };
+  }, [router]);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +67,21 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, [router]);
+
+  // Permissions can be changed by an administrator while a user is signed in
+  // in another tab/browser. Refresh the server-backed session when this tab
+  // becomes active so sidebar links and action buttons reflect the latest grants.
+  useEffect(() => {
+    const syncSession = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    window.addEventListener("focus", syncSession);
+    document.addEventListener("visibilitychange", syncSession);
+    return () => {
+      window.removeEventListener("focus", syncSession);
+      document.removeEventListener("visibilitychange", syncSession);
+    };
+  }, [refresh]);
 
   const logout = async () => {
     await requestLogout();

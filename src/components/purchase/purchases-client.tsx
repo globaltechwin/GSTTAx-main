@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { PurchaseForm } from "@/components/purchase/purchase-form";
 import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
 import { useSession } from "@/components/auth/session-provider";
+import { canPerform } from "@/lib/permissions";
 import {
   ShoppingCart,
   Plus,
@@ -369,7 +370,7 @@ export function PurchasesClient() {
       id: "actions",
       header: "Option",
       cell: (info) => {
-        if (user.role !== "ADMIN") return null;
+        if (user.role !== "ADMIN" && !canPerform(user.actionPermissions, "purchases", "update") && !canPerform(user.actionPermissions, "purchases", "delete")) return null;
         const purchase = info.row.original;
         return (
           <div className="relative">
@@ -454,7 +455,7 @@ export function PurchasesClient() {
             <Filter className="size-4" />
             Filters
           </button>
-          {user.role === "ADMIN" && (
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, "purchases", "export")) && (
             <button
               onClick={() => handleDownload()}
               disabled={data.length === 0}
@@ -464,7 +465,7 @@ export function PurchasesClient() {
               Download Excel
             </button>
           )}
-          {user.role === "ADMIN" && <button
+          {(user.role === "ADMIN" || canPerform(user.actionPermissions, "purchases", "create")) && <button
             onClick={() => setDialog({ type: "add" })}
             className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
           >
@@ -725,7 +726,7 @@ export function PurchasesClient() {
             className="border-border/60 bg-popover animate-fade-in fixed z-50 w-48 rounded-xl border p-1.5 shadow-xl"
             style={{ top: menuPos.top, right: menuPos.right }}
           >
-            <button
+            {(user.role === "ADMIN" || canPerform(user.actionPermissions, "purchases", "update")) && <button
               onClick={(e) => {
                 e.stopPropagation();
                 setDialog({ type: "edit", purchase });
@@ -735,8 +736,8 @@ export function PurchasesClient() {
             >
               <Pencil className="text-muted-foreground size-4" />
               Edit Purchase
-            </button>
-            <button
+            </button>}
+            {(user.role === "ADMIN" || canPerform(user.actionPermissions, "purchases", "export")) && <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleDownload(purchase);
@@ -746,8 +747,8 @@ export function PurchasesClient() {
             >
               <Download className="text-muted-foreground size-4" />
               Download Excel
-            </button>
-            <div className="bg-border/40 my-1 h-px" />
+            </button>}
+            {(user.role === "ADMIN" || canPerform(user.actionPermissions, "purchases", "delete")) && <><div className="bg-border/40 my-1 h-px" />
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -758,7 +759,7 @@ export function PurchasesClient() {
             >
               <Trash2 className="size-4" />
               Delete
-            </button>
+            </button></>}
           </div>
         );
       })()}

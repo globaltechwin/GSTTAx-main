@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
+import { parseActionPermissions, type ActionPermissions } from "@/lib/permissions";
 import {
   getSessionCookieOptions,
   invalidateSessionToken,
@@ -19,6 +20,7 @@ export interface SessionUser {
   role: string;
   status: string;
   sidebarAccess: string[];
+  actionPermissions: ActionPermissions;
 }
 
 export function hashSessionToken(token: string): string {
@@ -91,6 +93,11 @@ export async function getSessionUser(): Promise<SessionUser | null> {
             }
           })
         : sidebarAccess,
+    actionPermissions: session.user.role.toUpperCase() === "USER"
+      ? parseActionPermissions((session.user as typeof session.user & { actionPermissions?: string | null }).actionPermissions, sidebarAccess.filter((module) => {
+          try { const parent: unknown = JSON.parse(session.user.admin?.sidebarAccess || "[]"); return Array.isArray(parent) && parent.includes(module); } catch { return false; }
+        }))
+      : parseActionPermissions((session.user as typeof session.user & { actionPermissions?: string | null }).actionPermissions, sidebarAccess),
   };
 }
 
