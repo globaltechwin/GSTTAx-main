@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { z } from "zod";
 import { companySchema, type CompanyFormData } from "@/lib/validations";
 import type { Company } from "@/lib/data";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,7 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
     reset,
     setValue,
     watch,
-  } = useForm<CompanyFormData>({
+  } = useForm<z.input<typeof companySchema>, unknown, CompanyFormData>({
     resolver: zodResolver(companySchema),
     defaultValues: {
       name: company?.name ?? "",
@@ -40,6 +41,9 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
       address: company?.address ?? "",
       epfNo: company?.epfNo ?? "",
       logoUrl: company?.logoUrl ?? "",
+      signatureUrl: company?.signatureUrl ?? "",
+      signatureWidth: company?.signatureWidth ?? 160,
+      signatureHeight: company?.signatureHeight ?? 60,
     },
   });
 
@@ -58,11 +62,17 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
         address: company.address,
         epfNo: company.epfNo,
         logoUrl: company.logoUrl ?? "",
+        signatureUrl: company.signatureUrl ?? "",
+        signatureWidth: company.signatureWidth ?? 160,
+        signatureHeight: company.signatureHeight ?? 60,
       });
     }
   }, [company, reset]);
 
   const logoUrl = watch("logoUrl");
+  const signatureUrl = watch("signatureUrl");
+  const signatureWidth = watch("signatureWidth") ?? 160;
+  const signatureHeight = watch("signatureHeight") ?? 60;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -209,6 +219,19 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
           {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           {company ? "Update Company" : "Add Company"}
         </Button>
+      </div>
+      <div className="space-y-3 border-t pt-4">
+        <Label htmlFor="signatureFile">Authorized Digital Signature</Label>
+        <p className="text-muted-foreground text-xs">Upload a transparent PNG/JPEG signature. It is stored in this company profile; print-template placement is a separate integration step.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          {signatureUrl ? <img src={signatureUrl} alt="Signature preview" style={{ width: `${signatureWidth}px`, height: `${signatureHeight}px` }} className="rounded border bg-white object-contain p-1" /> : <div className="flex h-16 w-40 items-center justify-center rounded border text-xs text-muted-foreground">No signature uploaded</div>}
+          <Input id="signatureFile" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 2 * 1024 * 1024) { window.alert("Signature must be 2 MB or smaller"); event.target.value = ""; return; } const reader = new FileReader(); reader.onload = () => setValue("signatureUrl", String(reader.result), { shouldDirty: true }); reader.readAsDataURL(file); }} />
+          {signatureUrl && <Button type="button" variant="outline" onClick={() => setValue("signatureUrl", "", { shouldDirty: true })}>Remove signature</Button>}
+        </div>
+        <div className="grid max-w-md grid-cols-2 gap-3">
+          <div className="space-y-1"><Label htmlFor="signatureWidth">Signature width (px)</Label><Input id="signatureWidth" type="number" min="40" max="600" {...register("signatureWidth", { valueAsNumber: true })} /></div>
+          <div className="space-y-1"><Label htmlFor="signatureHeight">Signature height (px)</Label><Input id="signatureHeight" type="number" min="20" max="300" {...register("signatureHeight", { valueAsNumber: true })} /></div>
+        </div>
       </div>
     </form>
   );

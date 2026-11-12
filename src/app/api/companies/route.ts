@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
-    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl } = body;
+    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl, signatureUrl, signatureWidth, signatureHeight } = body;
 
     if (!name || !date) {
       return NextResponse.json({ error: "Name and date are required" }, { status: 400 });
@@ -89,6 +89,9 @@ export async function POST(request: NextRequest) {
         address: address || null,
         epfNo: epfNo || null,
         logoUrl: typeof logoUrl === "string" ? logoUrl : null,
+        signatureUrl: typeof signatureUrl === "string" ? signatureUrl : null,
+        signatureWidth: Number.isInteger(Number(signatureWidth)) ? Math.min(600, Math.max(40, Number(signatureWidth))) : 160,
+        signatureHeight: Number.isInteger(Number(signatureHeight)) ? Math.min(300, Math.max(20, Number(signatureHeight))) : 60,
       },
     });
 

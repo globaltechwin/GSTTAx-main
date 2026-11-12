@@ -45,13 +45,14 @@ export async function GET(request: NextRequest) {
       const csv = lines.map(row => row.map(quote).join(",")).join("\r\n");
       return new NextResponse(csv, { headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="delivery-challans-${new Date().toISOString().slice(0,10)}.csv"`, "Cache-Control": "no-store" } });
     }
-    const [data, total, issued, drafts] = await Promise.all([
+    const [data, total, issued, drafts, cancelled] = await Promise.all([
       prisma.deliveryChallan.findMany({ where, include: { items: true, workspace: { select: { id: true, username: true, firstName: true, lastName: true } } }, orderBy: [{ challanDate: "desc" }, { id: "desc" }], skip: (page - 1) * pageSize, take: pageSize }),
       prisma.deliveryChallan.count({ where }),
       prisma.deliveryChallan.count({ where: { ...workspaceWhere(access.user), status: "ISSUED" } }),
       prisma.deliveryChallan.count({ where: { ...workspaceWhere(access.user), status: "DRAFT" } }),
+      prisma.deliveryChallan.count({ where: { ...workspaceWhere(access.user), status: "CANCELLED" } }),
     ]);
-    return NextResponse.json({ data, total, page, pageSize, stats: { total, issued, drafts } });
+    return NextResponse.json({ data, total, page, pageSize, stats: { total, issued, drafts, cancelled } });
   } catch (error) {
     console.error("Delivery challan list failed", error);
     return NextResponse.json({ error: "Unable to load delivery challans" }, { status: 500 });

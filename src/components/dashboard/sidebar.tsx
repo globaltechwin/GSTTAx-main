@@ -27,13 +27,14 @@ import {
 const baseNavItems = [
   { key: "dashboard", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { key: "companies", label: "Company", href: "/dashboard/companies", icon: Building2 },
+  { key: "products", label: "Product Management", href: "/dashboard/products", icon: Package },
   { key: "to-companies", label: "To Company (Sales)", href: "/dashboard/to-companies", icon: Send },
   { key: "invoices", label: "Invoice", href: "/dashboard/invoices", icon: FileText },
   { key: "proforma-invoices", label: "Proforma Invoice", href: "/dashboard/proforma-invoices", icon: FileText },
   { key: "delivery-challans", label: "Delivery Challan", href: "/dashboard/delivery-challans", icon: Truck },
   { key: "vendors", label: "Vendor Details (Purchasing From)", href: "/dashboard/vendors", icon: Package },
   { key: "purchase-orders", label: "Purchase Order", href: "/dashboard/purchase-orders", icon: ClipboardList },
-  { key: "purchases", label: "Purchase Invoice", href: "/dashboard/purchases", icon: ShoppingCart },
+  { key: "purchases", label: "Purchased Invoice", href: "/dashboard/purchases", icon: ShoppingCart },
   {
     key: "turnover-report",
     label: "Turnover Report",

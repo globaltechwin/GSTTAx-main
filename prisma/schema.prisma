@@ -21,6 +21,9 @@ model Company {
   address           String?   @db.Text
   epfNo             String?   @db.VarChar(50)
   logoUrl           String?   @map("logo_url") @db.LongText
+  signatureUrl      String?   @map("signature_url") @db.LongText
+  signatureWidth    Int       @default(160) @map("signature_width")
+  signatureHeight   Int       @default(60) @map("signature_height")
   state             String?   @db.VarChar(50)
   stateCode         String?   @map("state_code") @db.VarChar(5)
   bankHolderName    String?   @map("bank_holder_name") @db.VarChar(100)
@@ -209,6 +212,7 @@ model User {
   workspaceAuditEntries AuditLog[]       @relation("AuditWorkspace")
   backupHistory         BackupHistory[]  @relation("BackupWorkspace")
   companies             Company[]        @relation("CompanyWorkspace")
+  products              Product[]        @relation("ProductWorkspace")
   deliveryChallans      DeliveryChallan[] @relation("DeliveryChallanWorkspace")
   exportHistory         ExportHistory[]  @relation("ExportWorkspace")
   importHistory         ImportHistory[]  @relation("ImportWorkspace")
@@ -499,3 +503,27 @@ model DeliveryChallanItem {
   @@map("delivery_challan_items")
 }
 
+
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(150)
+  sku         String   @db.VarChar(80)
+  hsnCode     String?  @map("hsn_code") @db.VarChar(20)
+  description String?  @db.Text
+  unit        String   @default("Nos") @db.VarChar(20)
+  gstRate     Decimal  @default(0) @map("gst_rate") @db.Decimal(5,2)
+  purchaseRate Decimal @default(0) @map("purchase_rate") @db.Decimal(14,2)
+  sellingRate Decimal  @default(0) @map("selling_rate") @db.Decimal(14,2)
+  stock       Decimal  @default(0) @db.Decimal(14,3)
+  minStock    Decimal  @default(0) @map("min_stock") @db.Decimal(14,3)
+  status      String   @default("active") @db.VarChar(20)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  adminId     Int      @map("admin_id")
+  workspace   User     @relation("ProductWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@unique([adminId, sku])
+  @@index([adminId, name])
+  @@map("products")
+}

@@ -16,6 +16,9 @@ export const companySchema = z.object({
   address: z.string().optional(),
   epfNo: z.string().optional(),
   logoUrl: z.string().max(12000000).optional().nullable(),
+  signatureUrl: z.string().max(12000000).optional().nullable(),
+  signatureWidth: z.coerce.number().int().min(40).max(600).optional(),
+  signatureHeight: z.coerce.number().int().min(20).max(300).optional(),
 }); 
 
 export type CompanyFormData = z.infer<typeof companySchema>;

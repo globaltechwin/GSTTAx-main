@@ -12,6 +12,9 @@ export interface Company {
   address: string;
   epfNo: string;
   logoUrl?: string | null;
+  signatureUrl?: string | null;
+  signatureWidth?: number;
+  signatureHeight?: number;
   workspace?: WorkspaceSummary | null;
 }
 

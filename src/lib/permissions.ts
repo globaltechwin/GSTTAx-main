@@ -1,5 +1,5 @@
 export const MODULE_KEYS = [
-  "dashboard", "companies", "to-companies", "invoices", "proforma-invoices",
+  "dashboard", "products", "companies", "to-companies", "invoices", "proforma-invoices",
   "delivery-challans", "purchases", "vendors", "purchase-orders",
   "turnover-report", "referrals", "import-export", "users", "settings",
 ] as const;
