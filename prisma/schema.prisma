@@ -37,6 +37,8 @@ model Company {
   adminId           Int?      @map("admin_id")
   workspace         User?     @relation("CompanyWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
   invoices          Invoice[]
+  purchases         Purchase[]
+  purchaseOrders    PurchaseOrder[]
 
   @@index([adminId])
   @@map("companies")
@@ -173,6 +175,8 @@ model InvoiceItem {
 model Purchase {
   id           Int      @id @default(autoincrement())
   gstNo        String?  @map("gst_no") @db.VarChar(50)
+  companyId    Int?     @map("company_id")
+  company      Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   partyName    String   @map("party_name") @db.VarChar(100)
   invoiceNo    String   @map("invoice_no") @db.VarChar(50)
   invoiceDate  DateTime @map("invoice_date") @db.Date
@@ -189,6 +193,7 @@ model Purchase {
   workspace    User?    @relation("PurchaseWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
 
   @@index([adminId, invoiceDate])
+  @@index([companyId])
   @@map("purchases")
 }
 
@@ -222,6 +227,7 @@ model User {
   purchases             Purchase[]       @relation("PurchaseWorkspace")
   vendors               Vendor[]         @relation("VendorWorkspace")
   purchaseOrders        PurchaseOrder[]  @relation("PurchaseOrderWorkspace")
+  inventoryMovements    InventoryMovement[] @relation("InventoryMovementWorkspace")
   referrals             Referral[]       @relation("ReferralWorkspace")
   sessions              Session[]
   toCompanies           ToCompany[]      @relation("ToCompanyWorkspace")
@@ -279,6 +285,7 @@ model PurchaseOrder {
   currency        String   @default("INR") @db.VarChar(10)
   shippingAddress String?  @map("shipping_address") @db.Text
   senderDetails   String?  @map("sender_details") @db.Text
+  companyId       Int?     @map("company_id")
   subtotal        Decimal  @default(0) @db.Decimal(14,2)
   discountAmount  Decimal  @default(0) @map("discount_amount") @db.Decimal(14,2)
   igstAmount      Decimal  @default(0) @map("igst_amount") @db.Decimal(14,2)
@@ -287,20 +294,25 @@ model PurchaseOrder {
   cessAmount      Decimal  @default(0) @map("cess_amount") @db.Decimal(14,2)
   grandTotal      Decimal  @default(0) @map("grand_total") @db.Decimal(14,2)
   status          String   @default("DRAFT") @db.VarChar(20)
+  receivedAt      DateTime? @map("received_at")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   adminId         Int      @map("admin_id")
   workspace       User     @relation("PurchaseOrderWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
   vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Restrict)
+  company         Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
   items           PurchaseOrderItem[]
+  inventoryMovements InventoryMovement[]
   @@unique([adminId, poNumber])
   @@index([adminId, orderDate])
+  @@index([companyId])
   @@map("purchase_orders")
 }
 
 model PurchaseOrderItem {
   id             Int      @id @default(autoincrement())
   purchaseOrderId Int     @map("purchase_order_id")
+  productId       Int?    @map("product_id")
   productName    String   @map("product_name") @db.VarChar(180)
   description    String?  @db.VarChar(255)
   itemType       String   @default("GOODS") @map("item_type") @db.VarChar(20)
@@ -315,7 +327,10 @@ model PurchaseOrderItem {
   taxAmount      Decimal  @default(0) @map("tax_amount") @db.Decimal(14,2)
   totalAmount    Decimal  @default(0) @map("total_amount") @db.Decimal(14,2)
   purchaseOrder  PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product        Product? @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryMovement InventoryMovement?
   @@index([purchaseOrderId])
+  @@index([productId])
   @@map("purchase_order_items")
 }
 
@@ -522,8 +537,32 @@ model Product {
   updatedAt   DateTime @updatedAt @map("updated_at")
   adminId     Int      @map("admin_id")
   workspace   User     @relation("ProductWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
+  purchaseOrderItems PurchaseOrderItem[]
+  inventoryMovements InventoryMovement[]
 
   @@unique([adminId, sku])
   @@index([adminId, name])
   @@map("products")
+}
+
+
+model InventoryMovement {
+  id                 Int      @id @default(autoincrement())
+  productId          Int      @map("product_id")
+  purchaseOrderId    Int      @map("purchase_order_id")
+  purchaseOrderItemId Int     @unique @map("purchase_order_item_id")
+  adminId            Int      @map("admin_id")
+  movementType       String   @default("PURCHASE_RECEIPT") @map("movement_type") @db.VarChar(30)
+  quantity           Decimal  @db.Decimal(14,3)
+  stockBefore        Decimal  @map("stock_before") @db.Decimal(14,3)
+  stockAfter         Decimal  @map("stock_after") @db.Decimal(14,3)
+  createdAt          DateTime @default(now()) @map("created_at")
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  purchaseOrder      PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  purchaseOrderItem  PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+  workspace          User     @relation("InventoryMovementWorkspace", fields: [adminId], references: [id], onDelete: Restrict)
+  @@index([adminId, createdAt])
+  @@index([productId, createdAt])
+  @@index([purchaseOrderId])
+  @@map("inventory_movements")
 }

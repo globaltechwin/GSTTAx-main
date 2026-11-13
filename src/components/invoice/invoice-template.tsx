@@ -37,6 +37,9 @@ export interface InvoiceCompanyData {
   bankBranchName: string | null;
   website: string | null;
   logoUrl?: string | null;
+  signatureUrl?: string | null;
+  signatureWidth?: number | null;
+  signatureHeight?: number | null;
 }
 
 export interface InvoiceToCompanyData {

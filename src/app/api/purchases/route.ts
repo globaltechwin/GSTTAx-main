@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: pageSize,
         include: {
+          company: { select: { id: true, name: true, gstNo: true, panNo: true, phone: true, email: true, address: true, state: true, logoUrl: true, signatureUrl: true, signatureWidth: true, signatureHeight: true } },
           workspace: {
             select: { id: true, username: true, firstName: true, lastName: true },
           },
@@ -67,8 +68,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst } =
+    const { companyId, gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst } =
       parsed.data;
+    if (companyId) {
+      const company = await prisma.company.findFirst({ where: { id: companyId, adminId: access.user.workspaceId, status: "active" }, select: { id: true } });
+      if (!company) return NextResponse.json({ error: "Selected company is invalid for this workspace" }, { status: 400 });
+    }
     if (Number.isNaN(new Date(invoiceDate).getTime())) {
       return NextResponse.json({ error: "Invalid purchase date" }, { status: 400 });
     }
@@ -81,6 +86,7 @@ export async function POST(request: NextRequest) {
     const purchase = await prisma.purchase.create({
       data: {
         adminId: access.user.workspaceId!,
+        companyId: companyId || null,
         gstNo: gstNo || null,
         partyName,
         invoiceNo,

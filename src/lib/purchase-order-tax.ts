@@ -1,5 +1,5 @@
 export type PurchaseOrderInputItem = {
-  productName?: unknown; description?: unknown; itemType?: unknown; hsnSac?: unknown;
+  productId?: unknown; productName?: unknown; description?: unknown; itemType?: unknown; hsnSac?: unknown;
   quantity?: unknown; uom?: unknown; unitRate?: unknown; discountRate?: unknown;
   taxRate?: unknown; taxType?: unknown;
 };
@@ -57,8 +57,10 @@ export function calculatePurchaseOrder(
     cgstAmount = money(cgstAmount + itemCgst);
     sgstAmount = money(sgstAmount + itemSgst);
     itemCessAmount = money(itemCessAmount + itemCess);
+    const productId = item.productId === null || item.productId === undefined || item.productId === "" ? null : Number(item.productId);
+    if (productId !== null && (!Number.isInteger(productId) || productId <= 0)) throw new Error("Select a valid product");
     return {
-      productName: String(item.productName).trim(), description: String(item.description || "") || null,
+      productId, productName: String(item.productName).trim(), description: String(item.description || "") || null,
       itemType: String(item.itemType || "GOODS"), hsnSac: String(item.hsnSac || "") || null,
       quantity, uom: String(item.uom || "Nos"), unitRate, discountRate, taxRate, taxType,
       taxableAmount, taxAmount: lineTax, totalAmount,

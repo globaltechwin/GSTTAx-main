@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+interface CompanyOption { id: number; name: string; gstNo?: string | null; panNo?: string | null; phone?: string | null; email?: string | null; address?: string | null; state?: string | null; status?: string; }
+
 interface InvoiceOption {
   id: number;
   orderId: string;
@@ -48,6 +50,7 @@ interface PurchaseFormProps {
 
 export function PurchaseForm({ purchase, onSubmit, onCancel, isLoading }: PurchaseFormProps) {
   const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
 
   const {
@@ -79,6 +82,8 @@ export function PurchaseForm({ purchase, onSubmit, onCancel, isLoading }: Purcha
   });
 
   useEffect(() => {
+    async function fetchCompanies() { try { const res = await fetch("/api/companies?page=1&pageSize=200"); if (res.ok) { const json = await res.json(); setCompanies((json.data || []).filter((c: CompanyOption) => c.status === "active")); } } catch { /* keep form usable if company list is unavailable */ } }
+    fetchCompanies();
     async function fetchInvoices() {
       try {
         const res = await fetch("/api/invoices/list");

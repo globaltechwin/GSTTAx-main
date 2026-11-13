@@ -49,6 +49,7 @@ export const referralSchema = z.object({
 export type ReferralFormData = z.infer<typeof referralSchema>;
 
 export const purchaseSchema = z.object({
+  companyId: z.number().int().positive().nullable().optional(),
   gstNo: z.string().optional(),
   partyName: z.string().min(1, "Party name is required").max(100, "Party name is too long"),
   invoiceNo: z.string().min(1, "Invoice number is required").max(50, "Invoice number is too long"),

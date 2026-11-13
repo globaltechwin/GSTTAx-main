@@ -35,15 +35,33 @@ export async function POST(request: NextRequest) {
     const vendorId = Number(body.vendorId);
     const vendor = await prisma.vendor.findFirst({ where: { id: vendorId, ...workspaceWhere(access.user) } });
     if (!vendor) return NextResponse.json({ error: "Select a valid vendor from your workspace" }, { status: 400 });
-    const company = await prisma.company.findFirst({ where: workspaceWhere(access.user), select: { state: true } });
-    const totals = calculatePurchaseOrder(body.items, company?.state, vendor.state, body.cessAmount);
+    const companyId = Number(body.companyId);
+    const company = Number.isInteger(companyId) && companyId > 0
+      ? await prisma.company.findFirst({ where: { id: companyId, ...workspaceWhere(access.user) }, select: { id: true, state: true } })
+      : null;
+    if (!company) return NextResponse.json({ error: "Select a valid company from your workspace" }, { status: 400 });
+    const rawItems = Array.isArray(body.items) ? body.items : [];
+    const linkedItems = await Promise.all(rawItems.map(async (item: Record<string, unknown>) => {
+      const sku = String(item.productSku || "").trim();
+      if (!sku) return { ...item, productId: null };
+      const product = await prisma.product.findFirst({ where: { sku, adminId: access.user.workspaceId, status: "active" }, select: { id: true } });
+      if (!product) throw new Error(`Inventory SKU "${sku}" was not found in your active Product Management list`);
+      if (item.itemType && String(item.itemType).toUpperCase() !== "GOODS") throw new Error("Inventory SKU can only be linked to Goods items");
+      return { ...item, productId: product.id, itemType: "GOODS" };
+    }));
+    const totals = calculatePurchaseOrder(linkedItems, company.state, vendor.state, body.cessAmount);
+    const productIds = [...new Set(totals.items.map((item) => item.productId).filter((id): id is number => id !== null))];
+    if (productIds.length) {
+      const owned = await prisma.product.count({ where: { id: { in: productIds }, adminId: access.user.workspaceId } });
+      if (owned !== productIds.length) return NextResponse.json({ error: "One or more selected products do not belong to this workspace" }, { status: 400 });
+    }
     const result = await prisma.purchaseOrder.create({
       data: {
         adminId: access.user.workspaceId!, poNumber: `PO-${new Date().getFullYear()}-${Date.now().toString().slice(-8)}`,
         vendorId, vendorName: vendor.name, gstin: vendor.gstin, contactName: body.contactName || null,
         orderDate: new Date(body.orderDate || new Date()), quoteNo: body.quoteNo || null,
         quoteDate: body.quoteDate ? new Date(body.quoteDate) : null, currency: body.currency || vendor.currency,
-        shippingAddress: body.shippingAddress || null, senderDetails: body.senderDetails || null,
+        shippingAddress: body.shippingAddress || null, senderDetails: body.senderDetails || null, companyId: company.id,
         subtotal: totals.subtotal, discountAmount: totals.discountAmount, igstAmount: totals.igstAmount,
         cgstAmount: totals.cgstAmount, sgstAmount: totals.sgstAmount, cessAmount: totals.cessAmount,
         grandTotal: totals.grandTotal, items: { create: totals.items },

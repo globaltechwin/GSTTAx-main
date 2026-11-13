@@ -765,77 +765,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Tax Type</Label>
-              <div className="flex gap-2">
-                {taxTypeOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => handleTaxTypeChange(opt.value)}
-                    className={cn(
-                      "rounded-lg border px-3 py-2 text-sm font-medium transition-all",
-                      effectiveTaxType === opt.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border/60 text-muted-foreground hover:bg-muted/50"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              {!taxTypeManuallySet && selectedCompany?.state && selectedToCompany?.state && (
-                <p className="text-muted-foreground text-xs italic">
-                  Auto-detected:{" "}
-                  {selectedCompany.state === selectedToCompany.state
-                    ? "Same state → CGST+SGST"
-                    : "Different state → IGST"}
-                </p>
-              )}
-              {/* Inline rate inputs */}
-              {isCGST && (
-                <div className="flex gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-muted-foreground text-xs">CGST %</Label>
-                    <Input
-                      type="number"
-                      value={cgstRate}
-                      onChange={(e) => setCgstRate(e.target.value)}
-                      className="h-8 w-16 text-center text-xs"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-muted-foreground text-xs">SGST %</Label>
-                    <Input
-                      type="number"
-                      value={sgstRate}
-                      onChange={(e) => setSgstRate(e.target.value)}
-                      className="h-8 w-16 text-center text-xs"
-                      min={0}
-                      max={100}
-                      step={0.1}
-                    />
-                  </div>
-                </div>
-              )}
-              {isIGST && (
-                <div className="flex items-center gap-1.5">
-                  <Label className="text-muted-foreground text-xs">IGST %</Label>
-                  <Input
-                    type="number"
-                    value={igstRate}
-                    onChange={(e) => setIgstRate(e.target.value)}
-                    className="h-8 w-16 text-center text-xs"
-                    min={0}
-                    max={100}
-                    step={0.1}
-                  />
-                </div>
-              )}
-            </div>
+            
 
             <div className="space-y-2">
               <Label htmlFor="referral" className="text-sm font-medium">

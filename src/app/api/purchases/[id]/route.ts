@@ -11,6 +11,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const purchase = await prisma.purchase.findFirst({
       where: { id: parseInt(id), ...workspaceWhere(access.user) },
       include: {
+        company: { select: { id: true, name: true, gstNo: true, panNo: true, phone: true, email: true, address: true, state: true, logoUrl: true, signatureUrl: true, signatureWidth: true, signatureHeight: true } },
         workspace: { select: { id: true, username: true, firstName: true, lastName: true } },
       },
     });
@@ -42,8 +43,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         { status: 400 }
       );
     }
-    const { gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst } =
+    const { companyId, gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst } =
       parsed.data;
+    if (companyId) {
+      const company = await prisma.company.findFirst({ where: { id: companyId, adminId: access.user.workspaceId, status: "active" }, select: { id: true } });
+      if (!company) return NextResponse.json({ error: "Selected company is invalid for this workspace" }, { status: 400 });
+    }
     if (Number.isNaN(new Date(invoiceDate).getTime())) {
       return NextResponse.json({ error: "Invalid purchase date" }, { status: 400 });
     }
@@ -59,6 +64,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const updated = await prisma.purchase.updateMany({
       where: { id: parsedId, adminId: access.user.workspaceId },
       data: {
+        companyId: companyId || null,
         gstNo: gstNo || null,
         partyName,
         invoiceNo,

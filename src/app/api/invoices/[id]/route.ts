@@ -37,6 +37,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             bankBranchName: true,
             website: true,
             logoUrl: true,
+            signatureUrl: true,
+            signatureWidth: true,
+            signatureHeight: true,
           },
         },
         toCompany: {

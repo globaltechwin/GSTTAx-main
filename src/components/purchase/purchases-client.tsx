@@ -35,6 +35,7 @@ import {
   RefreshCw,
   ChevronDown,
   Download,
+  Printer,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -198,6 +199,28 @@ export function PurchasesClient() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Purchase");
     XLSX.writeFile(wb, `purchase-report${purchase ? `-${purchase.invoiceNo || purchase.id}` : ""}.xlsx`);
+  };
+
+
+
+  const handlePrint = (purchase: Purchase) => {
+    const company = purchase.company;
+    const safe = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch] || ch));
+    const money = (value: unknown) => Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const width = Math.max(60, Math.min(320, Number(company?.signatureWidth || 160)));
+    const height = Math.max(25, Math.min(140, Number(company?.signatureHeight || 60)));
+    const html = `<!doctype html><html><head><title>Purchased Invoices ${safe(purchase.invoiceNo)}</title><style>
+      *{box-sizing:border-box}body{font:13px Arial,sans-serif;color:#222;margin:0;padding:28px}.top{display:flex;gap:18px;align-items:center;border-bottom:2px solid #333;padding-bottom:16px}.logo{max-width:125px;max-height:85px;object-fit:contain}.brand{flex:1}.brand h1{font-size:20px;margin:0 0 7px}.muted{color:#555;line-height:1.55}.title{text-align:center;margin:24px 0;font-size:20px;letter-spacing:1px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:1px solid #bbb;padding:14px}.label{color:#666;font-size:11px;text-transform:uppercase;margin-bottom:4px}.value{font-weight:600}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #888;padding:10px;text-align:left}th{background:#f2f2f2}.num{text-align:right}.total{margin:16px 0 0 auto;width:300px}.total div{display:flex;justify-content:space-between;padding:5px 0}.grand{font-size:16px;font-weight:bold;border-top:2px solid #333;margin-top:6px;padding-top:9px!important}.sign{margin-top:65px;text-align:right;page-break-inside:avoid}.sign img{display:block;margin-left:auto;object-fit:contain;object-position:right bottom}.footer{margin-top:35px;border-top:1px solid #ccc;padding-top:8px;color:#777;font-size:10px}@media print{body{padding:12mm}}</style></head><body>
+      ${company ? `<header class="top">${company.logoUrl ? `<img class="logo" src="${safe(company.logoUrl)}" alt="Company logo">` : ""}<div class="brand"><h1>${safe(company.name)}</h1><div class="muted">${company.address ? `${safe(company.address)}<br>` : ""}${company.gstNo ? `GSTIN: ${safe(company.gstNo)}<br>` : ""}${company.panNo ? `PAN: ${safe(company.panNo)}<br>` : ""}${company.phone ? `Phone: ${safe(company.phone)} ` : ""}${company.email ? `Email: ${safe(company.email)}` : ""}</div></div></header>` : ""}
+      <h2 class="title">Purchased Invoices</h2><section class="grid"><div><div class="label">Supplier / Party</div><div class="value">${safe(purchase.partyName)}</div><div class="muted">${purchase.gstNo ? `GSTIN: ${safe(purchase.gstNo)}` : ""}<br>${safe(purchase.state || "")}</div></div><div><div class="label">Invoice Details</div><div class="value">Invoice No: ${safe(purchase.invoiceNo)}</div><div class="muted">Date: ${safe(new Date(purchase.invoiceDate).toLocaleDateString("en-IN"))}</div></div></section>
+      <table><thead><tr><th>Description</th><th class="num">Tax Rate</th><th class="num">Taxable Value (₹)</th><th class="num">IGST (₹)</th><th class="num">CGST (₹)</th><th class="num">SGST (₹)</th></tr></thead><tbody><tr><td>Purchase of goods / services</td><td class="num">${money(purchase.rate)}%</td><td class="num">${money(purchase.taxableValue)}</td><td class="num">${money(purchase.igst)}</td><td class="num">${money(purchase.cgst)}</td><td class="num">${money(purchase.sgst)}</td></tr></tbody></table>
+      <div class="total"><div><span>Taxable Value</span><b>₹ ${money(purchase.taxableValue)}</b></div><div><span>IGST</span><b>₹ ${money(purchase.igst)}</b></div><div><span>CGST</span><b>₹ ${money(purchase.cgst)}</b></div><div><span>SGST</span><b>₹ ${money(purchase.sgst)}</b></div><div class="grand"><span>Total Invoice Value</span><span>₹ ${money(purchase.totalAmount)}</span></div></div>
+      <div class="sign">${company?.signatureUrl ? `<img src="${safe(company.signatureUrl)}" style="width:${width}px;height:${height}px" alt="Authorised signatory signature">` : ""}<b>Authorised Signatory</b></div><div class="footer">This document is generated from the Purchased Invoices records.</div>
+      </body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) { window.alert("Please allow pop-ups to print the Purchased Invoices."); return; }
+    win.document.open(); win.document.write(html); win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -425,7 +448,7 @@ export function PurchasesClient() {
           Home
         </a>
         <BreadcrumbSep className="size-3.5" />
-        <span className="text-foreground font-medium">Purchase</span>
+        <span className="text-foreground font-medium">Purchased Invoices</span>
       </nav>
       {loadError && <p className="text-destructive rounded-lg border p-3 text-sm" role="alert">{loadError}</p>}
 
@@ -436,9 +459,9 @@ export function PurchasesClient() {
             <ShoppingCart className="text-primary size-5" />
           </div>
           <div>
-            <h1 className="text-foreground text-xl font-bold tracking-tight">Purchase</h1>
+            <h1 className="text-foreground text-xl font-bold tracking-tight">Purchased Invoices</h1>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              Manage your purchase entries and vendor details
+              Manage supplier invoices, GST values and printable purchase records
             </p>
           </div>
         </div>
@@ -470,7 +493,7 @@ export function PurchasesClient() {
             className="btn-gradient text-primary-foreground inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
           >
             <Plus className="size-4" />
-            New Purchase
+            New Purchased Invoices
           </button>}
         </div>
       </div>
@@ -609,7 +632,7 @@ export function PurchasesClient() {
                           className="btn-gradient text-primary-foreground mt-2 inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow-sm transition-all"
                         >
                           <Plus className="size-4" />
-                          New Purchase
+                          New Purchased Invoices
                         </button>
                       )}
                     </div>
@@ -726,6 +749,7 @@ export function PurchasesClient() {
             className="border-border/60 bg-popover animate-fade-in fixed z-50 w-48 rounded-xl border p-1.5 shadow-xl"
             style={{ top: menuPos.top, right: menuPos.right }}
           >
+            <button onClick={(e) => { e.stopPropagation(); handlePrint(purchase); setOpenMenuId(null); }} className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"><Printer className="text-muted-foreground size-4" />Print Purchased Invoices</button>
             {(user.role === "ADMIN" || canPerform(user.actionPermissions, "purchases", "update")) && <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -787,7 +811,7 @@ export function PurchasesClient() {
                   {dialog.type === "delete" && <Trash2 className="size-4.5 text-red-600" />}
                 </div>
                 <h2 className="text-foreground text-lg font-semibold">
-                  {dialog.type === "add" && "Add New Purchase"}
+                  {dialog.type === "add" && "Add Purchased Invoices"}
                   {dialog.type === "edit" && "Edit Purchase"}
                   {dialog.type === "delete" && "Delete Purchase"}
                 </h2>

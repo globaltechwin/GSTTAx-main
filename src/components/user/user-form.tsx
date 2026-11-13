@@ -23,7 +23,7 @@ const MODULE_LABELS: Record<string, string> = {
   invoices: "Invoice",
   "proforma-invoices": "Proforma Invoice",
   "delivery-challans": "Delivery Challan",
-  purchases: "Purchased Invoice",
+  purchases: "Purchased Invoices",
   vendors: "Vendor Details (Purchasing From)",
   "purchase-orders": "Purchase Order",
   "turnover-report": "Turnover Report",
