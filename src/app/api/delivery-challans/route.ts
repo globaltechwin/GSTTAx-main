@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireApiAccess, workspaceWhere } from "@/lib/auth";
+import { allocateDocumentNumber, getDocumentNumberingConfig } from "@/lib/document-numbering";
 
 const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
 const dateValue = (value: unknown) => {
@@ -64,12 +65,12 @@ export async function POST(request: NextRequest) {
   if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
-    const challanNumber = clean(body.challanNumber);
+    const requestedNumber = clean(body.challanNumber);
     const recipientName = clean(body.recipientName);
     const challanDate = dateValue(body.challanDate);
     const items = Array.isArray(body.items) ? body.items : [];
-    if (!challanNumber || !recipientName || !challanDate || !items.length) {
-      return NextResponse.json({ error: "Challan number, challan date, recipient and at least one item are required" }, { status: 400 });
+    if (!recipientName || !challanDate || !items.length) {
+      return NextResponse.json({ error: "Challan date, recipient and at least one item are required" }, { status: 400 });
     }
     if (items.some((item: any) => !clean(item.description) || !Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0)) {
       return NextResponse.json({ error: "Every item needs a description and a quantity greater than zero" }, { status: 400 });
@@ -79,9 +80,17 @@ export async function POST(request: NextRequest) {
     const recipient = body.recipientId ? await prisma.toCompany.findFirst({ where: { id: Number(body.recipientId), adminId } }) : null;
     if (body.companyId && !company) return NextResponse.json({ error: "Selected company was not found in this workspace" }, { status: 400 });
     if (body.recipientId && !recipient) return NextResponse.json({ error: "Selected recipient was not found in this workspace" }, { status: 400 });
-    const duplicate = await prisma.deliveryChallan.findFirst({ where: { adminId, challanNumber } });
-    if (duplicate) return NextResponse.json({ error: "This challan number already exists in your workspace" }, { status: 409 });
-    const created = await prisma.deliveryChallan.create({ data: {
+    const settings = await prisma.workspaceSetting.findUnique({ where: { adminId_key: { adminId, key: "invoice" } }, select: { value: true } });
+    const numbering = getDocumentNumberingConfig(settings?.value, "DELIVERY_CHALLAN");
+    if (!numbering.enabled && !requestedNumber) return NextResponse.json({ error: "Enter a Delivery Challan number because automatic numbering is disabled by your Admin." }, { status: 400 });
+    const createChallan = () => prisma.$transaction(async (tx) => {
+      const challanNumber = (!numbering.enabled || (numbering.allowManualOverride && body.manualNumberOverride === true && requestedNumber))
+        ? requestedNumber
+        : await allocateDocumentNumber(tx, adminId, "DELIVERY_CHALLAN", challanDate, settings?.value);
+      if (!challanNumber) throw new Error("Enter a Delivery Challan number because automatic numbering is disabled by your Admin.");
+      const duplicate = await tx.deliveryChallan.findFirst({ where: { adminId, challanNumber }, select: { id: true } });
+      if (duplicate) throw new Error("DOCUMENT_NUMBER_ALREADY_EXISTS");
+      return tx.deliveryChallan.create({ data: {
       adminId, challanNumber, challanDate, deliveryDate: dateValue(body.deliveryDate),
       companyId: company?.id ?? null, companyName: company?.name || clean(body.companyName) || "",
       companyAddress: company?.address || clean(body.companyAddress) || null, companyGstin: company?.gstNo || clean(body.companyGstin) || null,
@@ -96,9 +105,16 @@ export async function POST(request: NextRequest) {
       status: body.issueNow ? "ISSUED" : "DRAFT",
       items: { create: items.map((item: any) => ({ description: clean(item.description), hsn: clean(item.hsn) || null, quantity: String(item.quantity), uom: clean(item.uom) || "Pcs" })) },
     }, include: { items: true } });
+    }, { isolationLevel: "Serializable" });
+    const created = await createChallan().catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && (error.code === "P2034" || error.code === "P2002") && numbering.enabled && !(numbering.allowManualOverride && body.manualNumberOverride === true && requestedNumber)) return createChallan();
+      throw error;
+    });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Delivery challan create failed", error);
-    return NextResponse.json({ error: "Unable to save delivery challan" }, { status: 500 });
+    if (error instanceof Error && error.message === "DOCUMENT_NUMBER_ALREADY_EXISTS") return NextResponse.json({ error: "This Delivery Challan number already exists in your workspace." }, { status: 409 });
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") return NextResponse.json({ error: "This Delivery Challan number already exists in your workspace." }, { status: 409 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to save delivery challan" }, { status: 400 });
   }
 }

@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
+import { getIndianFinancialYear } from "@/lib/invoice-numbering";
 
 function matchesSecret(provided: string, expected: string): boolean {
   const providedBuffer = Buffer.from(provided);
@@ -111,15 +112,17 @@ export async function POST(request: Request) {
           const parsed = Number.parseInt(invoice.invoiceNo ?? "", 10);
           return Number.isSafeInteger(parsed) ? Math.max(maximum, parsed) : maximum;
         }, 0);
+        const financialYear = getIndianFinancialYear(new Date());
+        const sequenceWhere = { adminId_financialYear: { adminId, financialYear } };
         const currentSequence = await transaction.invoiceSequence.findUnique({
-          where: { adminId },
+          where: sequenceWhere,
           select: { currentValue: true },
         });
         if (!currentSequence) {
-          await transaction.invoiceSequence.create({ data: { adminId, currentValue } });
+          await transaction.invoiceSequence.create({ data: { adminId, financialYear, currentValue } });
         } else if (currentSequence.currentValue < currentValue) {
           await transaction.invoiceSequence.update({
-            where: { adminId },
+            where: sequenceWhere,
             data: { currentValue },
           });
         }

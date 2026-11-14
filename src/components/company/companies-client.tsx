@@ -886,34 +886,62 @@ export function CompaniesClient() {
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => !actionLoading && setDialog(null)}
           />
-          <div className="border-border/60 bg-card relative mx-4 w-full max-w-2xl rounded-2xl border p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              "relative mx-4 flex w-full flex-col overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl",
+              dialog.type === "add" || dialog.type === "edit"
+                ? "max-h-[92vh] max-w-5xl"
+                : "max-h-[90vh] max-w-2xl border-border/60 p-6"
+            )}
+          >
+            <div
+              className={cn(
+                "flex shrink-0 items-center justify-between px-5 py-4 sm:px-6",
+                (dialog.type === "add" || dialog.type === "edit") &&
+                  "bg-gradient-to-r from-blue-800 via-blue-900 to-indigo-950 text-white",
+                dialog.type !== "add" && dialog.type !== "edit" && "border-b border-border/60 bg-card"
+              )}
+            >
+              <div className="flex min-w-0 items-center gap-3">
                 <div
                   className={cn(
-                    "flex size-9 items-center justify-center rounded-xl",
-                    dialog.type === "add" && "bg-primary/10",
-                    dialog.type === "edit" && "bg-blue-500/10",
+                    "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                    (dialog.type === "add" || dialog.type === "edit") && "bg-blue-500/30 text-white ring-1 ring-white/20",
                     dialog.type === "view" && "bg-amber-500/10",
                     dialog.type === "delete" && "bg-red-500/10"
                   )}
                 >
-                  {dialog.type === "add" && <Plus className="text-primary size-4.5" />}
-                  {dialog.type === "edit" && <Pencil className="size-4.5 text-blue-600" />}
+                  {dialog.type === "add" && <Building2 className="size-5" />}
+                  {dialog.type === "edit" && <Pencil className="size-5" />}
                   {dialog.type === "view" && <Eye className="size-4.5 text-amber-600" />}
                   {dialog.type === "delete" && <Trash2 className="size-4.5 text-red-600" />}
                 </div>
-                <h2 className="text-foreground text-lg font-semibold">
-                  {dialog.type === "add" && "Add New Company"}
-                  {dialog.type === "edit" && "Edit Company"}
-                  {dialog.type === "view" && "Company Details"}
-                  {dialog.type === "delete" && "Delete Company"}
-                </h2>
+                <div className="min-w-0">
+                  <h2 className={cn("truncate text-lg font-bold", (dialog.type === "add" || dialog.type === "edit") ? "text-white" : "text-foreground")}>
+                    {dialog.type === "add" && "Add New Company"}
+                    {dialog.type === "edit" && "Edit Company"}
+                    {dialog.type === "view" && "Company Details"}
+                    {dialog.type === "delete" && "Delete Company"}
+                  </h2>
+                  {(dialog.type === "add" || dialog.type === "edit") && (
+                    <p className="mt-0.5 text-xs text-blue-100 sm:text-sm">
+                      {dialog.type === "add"
+                        ? "Create a new company with business, tax and contact details"
+                        : "Update your company profile and registration details"}
+                    </p>
+                  )}
+                </div>
               </div>
               {!actionLoading && (
                 <button
                   onClick={() => setDialog(null)}
-                  className="text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex size-8 items-center justify-center rounded-lg transition-colors"
+                  aria-label="Close dialog"
+                  className={cn(
+                    "inline-flex size-9 shrink-0 items-center justify-center rounded-full transition-colors",
+                    (dialog.type === "add" || dialog.type === "edit")
+                      ? "bg-white/15 text-white hover:bg-white/25"
+                      : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                  )}
                 >
                   <X className="size-4" />
                 </button>

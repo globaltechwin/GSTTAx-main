@@ -67,6 +67,28 @@ export type PurchaseFormData = z.infer<typeof purchaseSchema>;
 
 const optionalInvoiceText = (max: number) => z.string().max(max).nullish();
 
+export function normalizeInvoicePayload(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const source = input as Record<string, unknown>;
+  const numeric = (value: unknown) => value === null || value === undefined || value === "" ? value : Number(value);
+  const normalized: Record<string, unknown> = { ...source };
+  for (const key of ["amount", "total", "cgstRate", "sgstRate", "igstRate", "discountAmount"]) {
+    if (key in source) normalized[key] = numeric(source[key]);
+  }
+  if (Array.isArray(source.items)) {
+    normalized.items = source.items.map((item) => {
+      if (!item || typeof item !== "object" || Array.isArray(item)) return item;
+      const row = item as Record<string, unknown>;
+      const copy: Record<string, unknown> = { ...row };
+      for (const key of ["quantity", "price", "amount", "igstRate", "cgstRate", "sgstRate"]) {
+        if (key in row) copy[key] = numeric(row[key]);
+      }
+      return copy;
+    });
+  }
+  return normalized;
+}
+
 export const invoiceSchema = z.object({
   orderId: z.string().trim().min(1).max(50),
   companyId: z.number().int().positive().nullable().optional(),
@@ -75,7 +97,7 @@ export const invoiceSchema = z.object({
   shipToCompanyId: z.number().int().positive().nullable().optional(),
   email: optionalInvoiceText(100),
   gst: optionalInvoiceText(50),
-  amount: z.number().finite().optional(),
+  amount: z.coerce.number().finite().optional(),
   total: z.number().finite().optional(),
   date: z.string().refine((value) => !Number.isNaN(new Date(value).getTime())),
   taxType: z.enum(["CGST_SGST", "IGST", "WITHOUT_GST"]).default("CGST_SGST"),
@@ -83,7 +105,8 @@ export const invoiceSchema = z.object({
   sgstRate: z.number().finite().min(0).max(100).default(0),
   igstRate: z.number().finite().min(0).max(100).default(0),
   reverseCharge: z.boolean().default(false),
-  invoiceNo: optionalInvoiceText(20),
+  invoiceNo: optionalInvoiceText(50),
+  manualNumberOverride: z.boolean().optional().default(false),
   documentType: z.enum(["TAX_INVOICE", "PROFORMA"]).default("TAX_INVOICE"),
   discountAmount: z.number().finite().min(0).max(9999999999.99).default(0),
   kindAttn: optionalInvoiceText(150),
@@ -122,15 +145,15 @@ export const invoiceSchema = z.object({
         description: optionalInvoiceText(255),
         hsn: optionalInvoiceText(20),
         sac: optionalInvoiceText(20),
-        quantity: z.number().finite().min(0).max(1_000_000),
+        quantity: z.coerce.number().finite().min(0).max(1_000_000),
         unit: optionalInvoiceText(10),
-        price: z.number().finite().min(0).max(9_999_999_999.99),
+        price: z.coerce.number().finite().min(0).max(9_999_999_999.99),
         per: optionalInvoiceText(10),
-        amount: z.number().finite().optional(),
+        amount: z.coerce.number().finite().optional(),
         gstType: z.enum(["CGST_SGST", "IGST", "WITHOUT_GST"]).nullish(),
-        igstRate: z.number().finite().min(0).max(100).nullish(),
-        cgstRate: z.number().finite().min(0).max(100).nullish(),
-        sgstRate: z.number().finite().min(0).max(100).nullish(),
+        igstRate: z.coerce.number().finite().min(0).max(100).nullish(),
+        cgstRate: z.coerce.number().finite().min(0).max(100).nullish(),
+        sgstRate: z.coerce.number().finite().min(0).max(100).nullish(),
       })
     )
     .min(1)

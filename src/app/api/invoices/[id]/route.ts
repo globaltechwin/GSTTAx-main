@@ -3,7 +3,7 @@ import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { canPerform } from "@/lib/permissions";
 import { calculateInvoiceAmounts } from "@/lib/invoice-math";
 import { prisma } from "@/lib/db";
-import { invoiceSchema } from "@/lib/validations";
+import { invoiceSchema, normalizeInvoicePayload } from "@/lib/validations";
 
 function optionalId(value: unknown): number | null | undefined {
   if (value === null || value === undefined || value === "") return null;
@@ -103,7 +103,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (!Number.isSafeInteger(invoiceId) || invoiceId < 1) {
       return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
     }
-    const parsed = invoiceSchema.safeParse(await request.json());
+    const parsed = invoiceSchema.safeParse(normalizeInvoicePayload(await request.json()));
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid invoice data", details: parsed.error.flatten() }, { status: 400 });
     }
@@ -161,7 +161,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const workspaceId = access.user.workspaceId!;
     const existing = await prisma.invoice.findFirst({
       where: { id: invoiceId, adminId: workspaceId },
-      select: { id: true },
+      select: { id: true, invoiceNo: true, orderId: true },
     });
     if (!existing) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
 
@@ -221,7 +221,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return transaction.invoice.update({
       where: { id: invoiceId, adminId: workspaceId },
       data: {
-        orderId: orderId.trim(),
+        orderId: existing.orderId,
         ...(companyRef ? { company: { connect: { id: companyRef } } } : { company: { disconnect: true } }),
         ...(toCompanyRef
           ? { toCompany: { connect: { id: toCompanyRef } } }
@@ -242,7 +242,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         sgstRate: sgstRate || 0,
         igstRate: igstRate || 0,
         reverseCharge: reverseCharge || false,
-        invoiceNo: invoiceNo || null,
+        invoiceNo: existing.invoiceNo,
         documentType: documentType || "TAX_INVOICE",
         discountAmount: financials.discountAmount,
         kindAttn: kindAttn || null,

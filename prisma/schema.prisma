@@ -100,7 +100,7 @@ model Invoice {
   sgstRate           Decimal       @default(0.00) @map("sgst_rate") @db.Decimal(5, 2)
   igstRate           Decimal       @default(0.00) @map("igst_rate") @db.Decimal(5, 2)
   reverseCharge      Boolean       @default(false) @map("reverse_charge")
-  invoiceNo          String?       @map("invoice_no") @db.VarChar(20)
+  invoiceNo          String?       @map("invoice_no") @db.VarChar(50)
   documentType       String        @default("TAX_INVOICE") @map("document_type") @db.VarChar(20)
   discountAmount     Decimal       @default(0.00) @map("discount_amount") @db.Decimal(12, 2)
   kindAttn            String?       @map("kind_attn") @db.VarChar(150)
@@ -221,7 +221,8 @@ model User {
   deliveryChallans      DeliveryChallan[] @relation("DeliveryChallanWorkspace")
   exportHistory         ExportHistory[]  @relation("ExportWorkspace")
   importHistory         ImportHistory[]  @relation("ImportWorkspace")
-  invoiceSequence       InvoiceSequence? @relation("WorkspaceInvoiceSequence")
+  invoiceSequences      InvoiceSequence[] @relation("WorkspaceInvoiceSequence")
+  documentNumberSequences DocumentNumberSequence[] @relation("WorkspaceDocumentNumberSequence")
   invoices              Invoice[]        @relation("InvoiceWorkspace")
   settings              WorkspaceSetting[]
   purchases             Purchase[]       @relation("PurchaseWorkspace")
@@ -416,11 +417,13 @@ model BackupHistory {
 }
 
 model InvoiceSequence {
-  adminId      Int      @id @map("admin_id")
+  adminId      Int      @map("admin_id")
+  financialYear String  @map("financial_year") @db.VarChar(5)
   currentValue Int      @default(0) @map("current_value")
   updatedAt    DateTime @updatedAt @map("updated_at")
   workspace    User     @relation("WorkspaceInvoiceSequence", fields: [adminId], references: [id])
 
+  @@id([adminId, financialYear])
   @@map("invoice_sequences")
 }
 
@@ -430,6 +433,19 @@ model ProformaSequence {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("proforma_sequences")
+}
+
+
+model DocumentNumberSequence {
+  adminId       Int      @map("admin_id")
+  documentType  String   @map("document_type") @db.VarChar(30)
+  financialYear String   @map("financial_year") @db.VarChar(5)
+  currentValue  Int      @default(0) @map("current_value")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  workspace     User     @relation("WorkspaceDocumentNumberSequence", fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@id([adminId, documentType, financialYear])
+  @@map("document_number_sequences")
 }
 
 model AuditLog {

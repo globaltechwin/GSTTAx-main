@@ -34,16 +34,16 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     }
     if (existing.status !== "DRAFT") return NextResponse.json({ error: "Only draft challans can be edited" }, { status: 409 });
     const items = Array.isArray(body.items) ? body.items : [];
-    if (!clean(body.challanNumber) || !clean(body.recipientName) || !dateValue(body.challanDate) || !items.length) return NextResponse.json({ error: "Required challan details and at least one item are needed" }, { status: 400 });
-    const duplicate = await prisma.deliveryChallan.findFirst({ where: { adminId: existing.adminId, challanNumber: clean(body.challanNumber), NOT: { id: existing.id } } });
-    if (duplicate) return NextResponse.json({ error: "This challan number already exists" }, { status: 409 });
+    if (!clean(body.recipientName) || !dateValue(body.challanDate) || !items.length) return NextResponse.json({ error: "Required challan details and at least one item are needed" }, { status: 400 });
+    // Document numbers are immutable after creation, including draft edits.
+
     if (items.some((item: any) => !clean(item.description) || !Number.isFinite(Number(item.quantity)) || Number(item.quantity) <= 0)) {
       return NextResponse.json({ error: "Every item needs a description and a quantity greater than zero" }, { status: 400 });
     }
     const updated = await prisma.$transaction(async (tx) => {
       await tx.deliveryChallanItem.deleteMany({ where: { deliveryChallanId: existing.id } });
       return tx.deliveryChallan.update({ where: { id: existing.id }, data: {
-        challanNumber: clean(body.challanNumber), challanDate: dateValue(body.challanDate)!, deliveryDate: dateValue(body.deliveryDate),
+        challanNumber: existing.challanNumber, challanDate: dateValue(body.challanDate)!, deliveryDate: dateValue(body.deliveryDate),
         companyName: clean(body.companyName), companyAddress: clean(body.companyAddress) || null, companyGstin: clean(body.companyGstin) || null, companyPhone: clean(body.companyPhone) || null,
         recipientName: clean(body.recipientName), recipientAddress: clean(body.recipientAddress) || null, recipientGstin: clean(body.recipientGstin) || null, recipientState: clean(body.recipientState) || null,
         poNumber: clean(body.poNumber) || null, poDate: dateValue(body.poDate), currency: clean(body.currency) || "INR", stateOfSupply: clean(body.stateOfSupply) || null,

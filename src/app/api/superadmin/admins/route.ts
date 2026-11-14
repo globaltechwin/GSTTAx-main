@@ -4,6 +4,7 @@ import { requireSuperadminApi } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { MODULE_KEYS } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
+import { getIndianFinancialYear } from "@/lib/invoice-numbering";
 
 const adminInput = z.object({
   firstName: z.string().trim().min(1).max(50),
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
       });
 
       await transaction.invoiceSequence.create({
-        data: { adminId: created.id, currentValue: 0 },
+        data: { adminId: created.id, financialYear: getIndianFinancialYear(new Date()), currentValue: 0 },
       });
       await transaction.auditLog.create({
         data: {

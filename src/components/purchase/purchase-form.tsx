@@ -31,6 +31,7 @@ interface InvoiceOption {
 interface PurchaseFormProps {
   purchase?: {
     id: number;
+    companyId?: number | null;
     gstNo: string | null;
     partyName: string;
     invoiceNo: string;
@@ -63,6 +64,7 @@ export function PurchaseForm({ purchase, onSubmit, onCancel, isLoading }: Purcha
   } = useForm({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
+      companyId: purchase?.companyId ?? null,
       gstNo: purchase?.gstNo ?? "",
       partyName: purchase?.partyName ?? "",
       invoiceNo: purchase?.invoiceNo ?? "",
@@ -102,6 +104,7 @@ export function PurchaseForm({ purchase, onSubmit, onCancel, isLoading }: Purcha
   useEffect(() => {
     if (purchase) {
       reset({
+        companyId: purchase.companyId ?? null,
         gstNo: purchase.gstNo ?? "",
         partyName: purchase.partyName,
         invoiceNo: purchase.invoiceNo,
@@ -150,10 +153,32 @@ export function PurchaseForm({ purchase, onSubmit, onCancel, isLoading }: Purcha
     setValue("totalAmount", totalAmount);
   };
 
+  const selectedCompanyId = watch("companyId");
+  const selectedCompany = companies.find((company) => company.id === Number(selectedCompanyId));
   const selectedInvoiceNo = watch("invoiceNo");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="purchaseCompany">Company Name</Label>
+        <select
+          id="purchaseCompany"
+          value={selectedCompanyId ?? ""}
+          onChange={(event) => setValue("companyId", event.target.value ? Number(event.target.value) : null, { shouldValidate: true, shouldDirty: true })}
+          className={cn("border-border/60 bg-card focus:ring-primary/20 h-10 w-full rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none", !selectedCompanyId && "text-muted-foreground")}
+        >
+          <option value="">Select Company</option>
+          {companies.map((company) => (
+            <option key={company.id} value={company.id}>{company.name}</option>
+          ))}
+        </select>
+        {selectedCompany && (
+          <p className="text-muted-foreground text-xs">
+            {[selectedCompany.gstNo ? `GSTIN: ${selectedCompany.gstNo}` : "", selectedCompany.state || "", selectedCompany.address || ""].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {companies.length === 0 && <p className="text-muted-foreground text-xs">No active companies available for this workspace.</p>}
+      </div>
       <div className="grid gap-5 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="partyName">

@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { ProductAutocomplete, type WorkspaceProduct } from "@/components/product/product-autocomplete";
 
 interface FullCompany {
   id: number;
@@ -169,6 +170,9 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
   const [shipToCompanyId, setShipToCompanyId] = useState("");
   const [referral, setReferral] = useState("");
   const [invoiceNo, setInvoiceNo] = useState("");
+  const [allowManualInvoiceNo, setAllowManualInvoiceNo] = useState(false);
+  const [manualInvoiceNoEdited, setManualInvoiceNoEdited] = useState(false);
+  const [automaticInvoiceNo, setAutomaticInvoiceNo] = useState(true);
   const [invoiceDate, setInvoiceDate] = useState(todayStr());
 
   const [taxType, setTaxType] = useState<TaxType>("CGST_SGST");
@@ -217,30 +221,32 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      setDropdownLoading(true);
-      try {
-        const [dropdownRes, nextRes] = await Promise.all([
-          fetch("/api/dropdown-data"),
-          fetch(`/api/invoices/next-number?documentType=${documentType}`),
-        ]);
-        if (dropdownRes.ok && !cancelled) {
-          setDropdownData(await dropdownRes.json());
-        }
-        if (nextRes.ok && !cancelled) {
-          const { nextInvoiceNo } = await nextRes.json();
-          setInvoiceNo(nextInvoiceNo);
-        }
-      } catch {
-      } finally {
-        if (!cancelled) setDropdownLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [documentType]);
+    fetch("/api/dropdown-data")
+      .then(async (response) => {
+        if (response.ok && !cancelled) setDropdownData(await response.json());
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!cancelled) setDropdownLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (isEdit) return;
+    let cancelled = false;
+    const query = new URLSearchParams({ documentType, date: invoiceDate });
+    fetch(`/api/document-numbers/next?${query.toString()}`)
+      .then(async (response) => {
+        if (!response.ok || cancelled) return;
+        const numbering = await response.json();
+        if (cancelled) return;
+        setAutomaticInvoiceNo(numbering.automatic !== false);
+        setAllowManualInvoiceNo(numbering.allowManualOverride === true);
+        setManualInvoiceNoEdited(false);
+        setInvoiceNo(numbering.automatic === false ? "" : (numbering.nextNumber || numbering.nextInvoiceNo || ""));
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [documentType, invoiceDate, isEdit]);
 
   useEffect(() => {
     if (!isEdit || !invoiceId) return;
@@ -301,7 +307,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
               description: (item.description as string) || "",
               hsn: (item.hsn as string) || "",
               sac: (item.sac as string) || "",
-              quantity: (item.quantity as number) || 0,
+              quantity: Number(item.quantity) || 0,
               price: Number(item.price) || 0,
               per: (item.per as string) || (item.unit as string) || "Pcs",
               amount: Number(item.amount) || 0,
@@ -387,6 +393,26 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
     );
   };
 
+  const applyProductToInvoiceItem = (id: number, product: WorkspaceProduct) => {
+    const rate = Number(product.gstRate) || 0;
+    setItems((prev) => prev.map((item) => {
+      if (item.id !== id) return item;
+      const price = Number(product.sellingRate) || 0;
+      return {
+        ...item,
+        description: product.name,
+        hsn: product.hsnCode || "",
+        per: product.unit || "Pcs",
+        price,
+        amount: item.quantity * price,
+        gstType: effectiveTaxType,
+        igstRate: effectiveTaxType === "IGST" ? rate : null,
+        cgstRate: effectiveTaxType === "CGST_SGST" ? rate / 2 : null,
+        sgstRate: effectiveTaxType === "CGST_SGST" ? rate / 2 : null,
+      };
+    }));
+  };
+
   const subtotal = items.reduce((sum, item) => sum + item.amount, 0);
   const isCGST = effectiveTaxType === "CGST_SGST";
   const isIGST = effectiveTaxType === "IGST";
@@ -455,6 +481,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
       igstRate: isIGST ? parseFloat(igstRate) || 0 : 0,
       reverseCharge,
       invoiceNo,
+      manualNumberOverride: manualInvoiceNoEdited,
       challanNo,
       transportMode,
       vehicleNo,
@@ -492,15 +519,15 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
           description: item.description,
           hsn: item.hsn,
           sac: item.sac,
-          quantity: item.quantity,
+          quantity: Number(item.quantity) || 0,
           unit: item.per,
-          price: item.price,
+          price: Number(item.price) || 0,
           per: item.per,
-          amount: item.amount,
+          amount: Number(item.amount) || 0,
           gstType: item.gstType || null,
-          igstRate: item.igstRate ?? (itemTaxType === "IGST" ? fallbackIgst : null),
-          cgstRate: item.cgstRate ?? (itemTaxType === "CGST_SGST" ? fallbackCgst : null),
-          sgstRate: item.sgstRate ?? (itemTaxType === "CGST_SGST" ? fallbackSgst : null),
+          igstRate: item.igstRate == null ? (itemTaxType === "IGST" ? fallbackIgst : null) : Number(item.igstRate),
+          cgstRate: item.cgstRate == null ? (itemTaxType === "CGST_SGST" ? fallbackCgst : null) : Number(item.cgstRate),
+          sgstRate: item.sgstRate == null ? (itemTaxType === "CGST_SGST" ? fallbackSgst : null) : Number(item.sgstRate),
         };
       }),
     };
@@ -626,7 +653,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
 
       {/* Invoice Details */}
       <div className="border-border/60 bg-card rounded-2xl border p-6 shadow-sm">
-        <h2 className="text-foreground mb-6 text-lg font-semibold">Invoice Details</h2>
+        <h2 className="text-foreground mb-6 text-lg font-semibold"> Invoice Details</h2>
 
         <div className="grid gap-6 md:grid-cols-2">
           {/* Left Column */}
@@ -793,16 +820,20 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
           {/* Right Column */}
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="invoiceNo" className="text-sm font-medium">
-                Invoice No
-              </Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="invoiceNo" className="text-sm font-medium">Invoice No</Label>
+                {!isEdit && automaticInvoiceNo && <span className="text-xs font-medium text-emerald-700">Auto-generated by Admin</span>}
+                {!isEdit && !automaticInvoiceNo && <span className="text-xs text-amber-700">Manual entry enabled by Admin</span>}
+              </div>
               <Input
                 id="invoiceNo"
                 value={invoiceNo}
-                onChange={(e) => setInvoiceNo(e.target.value)}
-                placeholder="e.g. 33"
-                className="font-mono"
+                onChange={(e) => { setInvoiceNo(e.target.value); setManualInvoiceNoEdited(true); }}
+                placeholder={automaticInvoiceNo ? "Generated automatically" : "Enter invoice number"}
+                readOnly={isEdit || !allowManualInvoiceNo}
+                className={`font-mono ${isEdit || !allowManualInvoiceNo ? "bg-muted/50" : ""}`}
               />
+              {!isEdit && !allowManualInvoiceNo && <p className="text-muted-foreground text-xs">This number is generated automatically. Only your Admin can change the numbering settings.</p>}
             </div>
 
             <div className="space-y-2">
@@ -1237,7 +1268,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                   <tr key={item.id} className="border-border/40 hover:bg-muted/20 border-b transition-colors">
                     <td className="px-2 py-2 text-center text-sm font-medium">{index + 1}</td>
                     <td className="px-2 py-2">
-                      <Input value={item.description} onChange={(e) => updateItem(item.id, "description", e.target.value)} placeholder="Name of product" className="h-8 text-sm" />
+                      <ProductAutocomplete value={item.description} onChange={(value) => updateItem(item.id, "description", value)} onSelect={(product: WorkspaceProduct) => applyProductToInvoiceItem(item.id, product)} placeholder="Search Product ID, name or SKU" className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"/>
                     </td>
                     <td className="px-2 py-2">
                       <Input type="number" value={item.quantity || ""} onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)} placeholder="0" className="h-8 w-16 text-center text-sm" min={0} />

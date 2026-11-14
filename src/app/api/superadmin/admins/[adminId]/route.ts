@@ -183,6 +183,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
       await tx.workspaceSetting.deleteMany({ where: { adminId: id } });
       await tx.proformaSequence.deleteMany({ where: { adminId: id } });
       await tx.invoiceSequence.deleteMany({ where: { adminId: id } });
+      await tx.documentNumberSequence.deleteMany({ where: { adminId: id } });
       await tx.user.deleteMany({ where: { adminId: id } });
       await tx.user.delete({ where: { id } });
       await tx.auditLog.create({

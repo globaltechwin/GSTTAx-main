@@ -46,7 +46,7 @@ CREATE TABLE `invoices` (
   `challan_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `date_of_supply` date DEFAULT NULL,
   `igst_rate` decimal(5,2) NOT NULL DEFAULT '0.00',
-  `invoice_no` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `invoice_no` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `place_of_supply` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `reverse_charge` tinyint(1) NOT NULL DEFAULT '0',
   `sgst_rate` decimal(5,2) NOT NULL DEFAULT '0.00',

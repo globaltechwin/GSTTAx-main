@@ -3,7 +3,8 @@ import { requireApiAccess, workspaceWhere } from "@/lib/auth";
 import { canPerform } from "@/lib/permissions";
 import { calculateInvoiceAmounts } from "@/lib/invoice-math";
 import { prisma } from "@/lib/db";
-import { invoiceSchema } from "@/lib/validations";
+import { invoiceSchema, normalizeInvoicePayload } from "@/lib/validations";
+import { allocateDocumentNumber, getDocumentNumberingConfig } from "@/lib/document-numbering";
 
 function optionalId(value: unknown): number | null | undefined {
   if (value === null || value === undefined || value === "") return null;
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
   const access = await requireApiAccess(request, "invoices", "create");
   if (access instanceof NextResponse) return access;
   try {
-    const parsed = invoiceSchema.safeParse(await request.json());
+    const parsed = invoiceSchema.safeParse(normalizeInvoicePayload(await request.json()));
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Invalid invoice data", details: parsed.error.flatten() },
@@ -169,6 +170,7 @@ export async function POST(request: NextRequest) {
       logoUrl,
       phone,
       documentType,
+      invoiceNo,
       discountAmount,
       kindAttn,
       mobileNo,
@@ -178,6 +180,13 @@ export async function POST(request: NextRequest) {
     } = parsed.data;
 
     const workspaceId = access.user.workspaceId!;
+    const invoiceSetting = await prisma.workspaceSetting.findUnique({ where: { adminId_key: { adminId: workspaceId, key: "invoice" } }, select: { value: true } });
+    const documentNumbering = getDocumentNumberingConfig(invoiceSetting?.value, documentType === "PROFORMA" ? "PROFORMA" : "TAX_INVOICE");
+    const requestedInvoiceNo = typeof invoiceNo === "string" ? invoiceNo.trim() : "";
+    const manualNumberOverride = parsed.data.manualNumberOverride === true;
+    if (!documentNumbering.enabled && !requestedInvoiceNo) {
+      return NextResponse.json({ error: `Enter a ${documentType === "PROFORMA" ? "Proforma" : "invoice"} number because automatic numbering is disabled by your Admin.` }, { status: 400 });
+    }
     const companyRef = optionalId(companyId);
     const toCompanyRef = optionalId(toCompanyId);
     const rawBillToRef = optionalId(billToCompanyId);
@@ -231,21 +240,18 @@ export async function POST(request: NextRequest) {
     const createInvoice = () =>
       prisma.$transaction(async (transaction) => {
         let allocatedNumber: string;
-        if (documentType === "PROFORMA") {
-          const sequence = await transaction.proformaSequence.findUnique({ where: { adminId: workspaceId }, select: { currentValue: true } });
-          if (!sequence) await transaction.proformaSequence.create({ data: { adminId: workspaceId, currentValue: 0 } });
-          const allocated = await transaction.proformaSequence.update({ where: { adminId: workspaceId }, data: { currentValue: { increment: 1 } }, select: { currentValue: true } });
-          allocatedNumber = `PI-${allocated.currentValue}`;
+        if (!documentNumbering.enabled || (documentNumbering.allowManualOverride && manualNumberOverride && requestedInvoiceNo)) {
+          // Manual numbers never consume the automatic sequence.
+          allocatedNumber = requestedInvoiceNo;
         } else {
-          const sequence = await transaction.invoiceSequence.findUnique({ where: { adminId: workspaceId }, select: { currentValue: true } });
-          if (!sequence) {
-            const existingNumbers = await transaction.invoice.findMany({ where: { adminId: workspaceId, documentType: "TAX_INVOICE" }, select: { invoiceNo: true } });
-            const maximum = existingNumbers.reduce((value, record) => { const parsed = Number.parseInt(record.invoiceNo ?? "", 10); return Number.isSafeInteger(parsed) ? Math.max(value, parsed) : value; }, 0);
-            await transaction.invoiceSequence.create({ data: { adminId: workspaceId, currentValue: maximum } });
-          }
-          const allocated = await transaction.invoiceSequence.update({ where: { adminId: workspaceId }, data: { currentValue: { increment: 1 } }, select: { currentValue: true } });
-          allocatedNumber = String(allocated.currentValue);
+          allocatedNumber = await allocateDocumentNumber(transaction, workspaceId, documentType === "PROFORMA" ? "PROFORMA" : "TAX_INVOICE", new Date(date), invoiceSetting?.value);
         }
+
+        const duplicate = await transaction.invoice.findFirst({
+          where: { adminId: workspaceId, documentType, invoiceNo: allocatedNumber },
+          select: { id: true },
+        });
+        if (duplicate) throw new Error("DOCUMENT_NUMBER_ALREADY_EXISTS");
 
         return transaction.invoice.create({
           data: {
@@ -308,9 +314,9 @@ export async function POST(request: NextRequest) {
             items: true,
           },
         });
-      });
+      }, { isolationLevel: "Serializable" });
     const invoice = await createInvoice().catch((error: unknown) => {
-      if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      if (error && typeof error === "object" && "code" in error && (error.code === "P2002" || error.code === "P2034")) {
         return createInvoice();
       }
       throw error;
@@ -318,6 +324,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(invoice, { status: 201 });
   } catch (err) {
+    if (err instanceof Error && err.message === "DOCUMENT_NUMBER_ALREADY_EXISTS") {
+      return NextResponse.json({ error: "This document number already exists in your workspace. Enter a different number or use the next generated number." }, { status: 409 });
+    }
+    if (err instanceof Error && err.message === "DOCUMENT_NUMBER_MANUAL_REQUIRED") {
+      return NextResponse.json({ error: "Enter a document number because automatic numbering is disabled by your Admin." }, { status: 400 });
+    }
     const message = err instanceof Error ? err.message : "Failed to create invoice";
     return NextResponse.json({ error: message }, { status: 500 });
   }
