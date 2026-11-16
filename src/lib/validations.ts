@@ -61,6 +61,20 @@ export const purchaseSchema = z.object({
   cgst: z.coerce.number().min(0, "CGST must be positive").optional(),
   sgst: z.coerce.number().min(0, "SGST must be positive").optional(),
   totalAmount: z.coerce.number().min(0, "Total amount must be positive"),
+  items: z.array(z.object({
+    productId: z.coerce.number().int().positive().nullable().optional(),
+    description: z.string().min(1, "Product description is required").max(255),
+    hsn: z.string().max(20).optional().or(z.literal("")),
+    quantity: z.coerce.number().positive("Quantity must be greater than zero"),
+    unit: z.string().max(20).optional(),
+    unitPrice: z.coerce.number().min(0),
+    gstRate: z.coerce.number().min(0).max(100),
+    taxableValue: z.coerce.number().min(0),
+    igst: z.coerce.number().min(0).optional(),
+    cgst: z.coerce.number().min(0).optional(),
+    sgst: z.coerce.number().min(0).optional(),
+    totalAmount: z.coerce.number().min(0),
+  })).optional().default([]),
 });
 
 export type PurchaseFormData = z.infer<typeof purchaseSchema>;

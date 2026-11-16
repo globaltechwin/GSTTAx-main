@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { MODULE_LABELS } from "@/lib/permissions";
 import {
   Activity, ArrowLeft, BadgeCheck, Bell, Building2, CalendarDays, CheckCircle2, ClipboardList,
   Download, Eye, FileText, Hash, Info, Mail, Package, ReceiptText, Share2, ShoppingCart,
@@ -20,19 +21,15 @@ type WorkspacePayload = {
 type TabKey = "companies" | "toCompanies" | "invoices" | "proformaInvoices" | "purchases" | "purchaseOrders" | "vendors" | "deliveryChallans" | "users" | "referrals" | "activity";
 const money = (value: unknown) => value == null || value === "" ? "—" : new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(Number(value));
 const date = (value: unknown) => value ? new Date(String(value)).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-const moduleLabels: Record<string, string> = {
-  dashboard: "Dashboard", companies: "Companies", "to-companies": "To Companies", invoices: "Invoices", "proforma-invoices": "Proforma Invoice",
-  "delivery-challans": "Delivery Challan", purchases: "Purchases", vendors: "Vendors", "purchase-orders": "Purchase Orders",
-  "turnover-report": "Turnover Report", referrals: "Referrals", "import-export": "Import Export", users: "Users", settings: "Settings",
-};
+const moduleLabels: Record<string, string> = MODULE_LABELS;
 const tabs: { key: TabKey; label: string; icon: typeof Building2; count: (c: WorkspacePayload["counts"]) => number }[] = [
-  { key: "companies", label: "Companies", icon: Building2, count: c => c.companies },
-  { key: "toCompanies", label: "To Companies", icon: Share2, count: c => c.toCompanies },
-  { key: "invoices", label: "Invoices", icon: FileText, count: c => c.invoices },
+  { key: "companies", label: "Company", icon: Building2, count: c => c.companies },
+  { key: "toCompanies", label: "To Company (Sales)", icon: Share2, count: c => c.toCompanies },
+  { key: "invoices", label: "Invoice", icon: FileText, count: c => c.invoices },
   { key: "proformaInvoices", label: "Proforma Invoice", icon: ReceiptText, count: c => c.proformaInvoices },
-  { key: "purchases", label: "Purchases", icon: ShoppingCart, count: c => c.purchases },
-  { key: "purchaseOrders", label: "Purchase Orders", icon: ClipboardList, count: c => c.purchaseOrders },
-  { key: "vendors", label: "Vendors", icon: Package, count: c => c.vendors },
+  { key: "purchases", label: "Purchased Invoice", icon: ShoppingCart, count: c => c.purchases },
+  { key: "purchaseOrders", label: "Purchase Order", icon: ClipboardList, count: c => c.purchaseOrders },
+  { key: "vendors", label: "Vendor Details (Purchasing From)", icon: Package, count: c => c.vendors },
   { key: "deliveryChallans", label: "Delivery Challan", icon: Truck, count: c => c.deliveryChallans },
   { key: "referrals", label: "Referrals", icon: Activity, count: c => c.referrals },
   { key: "users", label: "Users", icon: Users, count: c => c.users },

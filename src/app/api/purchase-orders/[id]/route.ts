@@ -63,6 +63,10 @@ export async function PATCH(request: NextRequest, { params }: Context) {
   if (row.status !== "DRAFT") return NextResponse.json({ error: "Only draft purchase orders can be edited" }, { status: 409 });
 
   try {
+    const requestedPoNumber = String(body.poNumber ?? "").trim();
+    if (!requestedPoNumber) return NextResponse.json({ error: "Purchase order number is required" }, { status: 400 });
+    const duplicatePo = await prisma.purchaseOrder.findFirst({ where: { adminId: row.adminId, poNumber: requestedPoNumber, NOT: { id } }, select: { id: true } });
+    if (duplicatePo) return NextResponse.json({ error: `Purchase order number "${requestedPoNumber}" already exists. Please enter a different number.` }, { status: 409 });
     const vendorId = Number(body.vendorId);
     const vendor = await prisma.vendor.findFirst({ where: { id: vendorId, ...workspaceWhere(access.user) } });
     if (!vendor) return NextResponse.json({ error: "Select a valid vendor from your workspace" }, { status: 400 });
@@ -92,7 +96,7 @@ export async function PATCH(request: NextRequest, { params }: Context) {
       return tx.purchaseOrder.update({
         where: { id },
         data: {
-          vendorId, vendorName: vendor.name, gstin: vendor.gstin, contactName: body.contactName || null,
+          vendorId, poNumber: requestedPoNumber, vendorName: vendor.name, gstin: vendor.gstin, contactName: body.contactName || null,
           orderDate: new Date(body.orderDate), quoteNo: body.quoteNo || null,
           quoteDate: body.quoteDate ? new Date(body.quoteDate) : null, currency: body.currency || vendor.currency,
           shippingAddress: body.shippingAddress || null, senderDetails: body.senderDetails || null, companyId: company.id,

@@ -12,7 +12,7 @@ import {
 import type { AppUser } from "@/lib/data";
 import type { UserFormData } from "@/lib/validations";
 import { cn } from "@/lib/utils";
-import { PERMISSION_ACTIONS, parseActionPermissions, type ActionPermissions, type PermissionAction } from "@/lib/permissions";
+import { MODULE_LABELS, PERMISSION_ACTIONS, parseActionPermissions, type ActionPermissions, type PermissionAction } from "@/lib/permissions";
 import { UserForm } from "@/components/user/user-form";
 import { useSession } from "@/components/auth/session-provider";
 import { WorkspaceOwner } from "@/components/superadmin/workspace-owner";
@@ -39,18 +39,7 @@ import {
   Lock,
 } from "lucide-react";
 
-const SIDEBAR_LABELS: Record<string, string> = {
-  dashboard: "Dashboard",
-  companies: "Company",
-  "to-companies": "To Company",
-  invoices: "Invoice",
-  purchases: "Purchase",
-  "turnover-report": "Turnover Report",
-  referrals: "Referral",
-  "import-export": "Import/Export",
-  users: "Users",
-  settings: "Settings",
-};
+const SIDEBAR_LABELS: Record<string, string> = MODULE_LABELS;
 
 type DialogMode =
   | null

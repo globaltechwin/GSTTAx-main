@@ -94,7 +94,6 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [dialog, setDialog] = useState<{ type: "delete"; invoice: InvoiceData } | null>(null);
-  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -203,40 +202,6 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
   };
 
   const columns: ColumnDef<InvoiceData>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <input
-          type="checkbox"
-          checked={table.getIsAllPageRowsSelected()}
-          onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
-          className="border-border/60 bg-card accent-primary size-4 cursor-pointer rounded"
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <input
-          type="checkbox"
-          checked={row.getIsSelected()}
-          onChange={(e) => row.toggleSelected(e.target.checked)}
-          className="border-border/60 bg-card accent-primary size-4 cursor-pointer rounded"
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-      size: 40,
-    },
-    {
-      id: "srNo",
-      header: "#",
-      cell: (info) => (
-        <span className="text-muted-foreground font-medium">
-          {(page - 1) * pageSize + info.row.index + 1}
-        </span>
-      ),
-      size: 50,
-    },
     {
       accessorKey: "orderId",
       header: isProforma ? "Proforma No" : "Invoice No",
@@ -443,10 +408,9 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, pagination: { pageIndex: page - 1, pageSize }, rowSelection },
+    state: { sorting, pagination: { pageIndex: page - 1, pageSize } },
     pageCount: totalPages,
     onSortingChange: setSorting,
-    onRowSelectionChange: setRowSelection,
     onPaginationChange: (updater) => {
       if (typeof updater === "function") {
         const newState = updater({ pageIndex: page - 1, pageSize });
@@ -620,11 +584,6 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
               <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2" />
             </div>
             <span className="text-muted-foreground text-sm">entries</span>
-            {Object.keys(rowSelection).length > 0 && (
-              <span className="bg-primary/10 text-primary animate-fade-in inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold">
-                {Object.keys(rowSelection).length} selected
-              </span>
-            )}
           </div>
           <div className="relative">
             <Search className="text-muted-foreground/50 absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -728,11 +687,7 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
                     key={row.id}
                     className={cn(
                       "border-border/40 border-b transition-colors last:border-0",
-                      row.getIsSelected()
-                        ? "bg-primary/5"
-                        : index % 2 === 0
-                          ? "hover:bg-muted/30 bg-transparent"
-                          : "bg-muted/10 hover:bg-muted/30"
+                      index % 2 === 0 ? "hover:bg-muted/30 bg-transparent" : "bg-muted/10 hover:bg-muted/30"
                     )}
                   >
                     {row.getVisibleCells().map((cell) => (

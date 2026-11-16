@@ -164,6 +164,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       select: { id: true, invoiceNo: true, orderId: true },
     });
     if (!existing) return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+    const requestedInvoiceNo = String(invoiceNo ?? "").trim();
+    if (!requestedInvoiceNo) return NextResponse.json({ error: "Invoice number is required" }, { status: 400 });
+    const duplicateNumber = await prisma.invoice.findFirst({
+      where: { adminId: workspaceId, documentType: documentType || "TAX_INVOICE", invoiceNo: requestedInvoiceNo, NOT: { id: invoiceId } },
+      select: { id: true },
+    });
+    if (duplicateNumber) return NextResponse.json({ error: `The ${documentType === "PROFORMA" ? "proforma invoice" : "invoice"} number "${requestedInvoiceNo}" is already in use. Please enter a different number.` }, { status: 409 });
 
     const companyRef = optionalId(companyId);
     const toCompanyRef = optionalId(toCompanyId);
@@ -242,7 +249,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         sgstRate: sgstRate || 0,
         igstRate: igstRate || 0,
         reverseCharge: reverseCharge || false,
-        invoiceNo: existing.invoiceNo,
+        invoiceNo: requestedInvoiceNo,
         documentType: documentType || "TAX_INVOICE",
         discountAmount: financials.discountAmount,
         kindAttn: kindAttn || null,

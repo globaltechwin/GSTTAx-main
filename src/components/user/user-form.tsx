@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { userSchema, type UserFormData } from "@/lib/validations";
 import {
   MODULE_KEYS,
+  MODULE_LABELS,
   PERMISSION_ACTIONS,
   parseActionPermissions,
   type ActionPermissions,
@@ -16,22 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const MODULE_LABELS: Record<string, string> = {
-  dashboard: "Dashboard",
-  companies: "Company",
-  "to-companies": "To Company (Sales)",
-  invoices: "Invoice",
-  "proforma-invoices": "Proforma Invoice",
-  "delivery-challans": "Delivery Challan",
-  purchases: "Purchased Invoices",
-  vendors: "Vendor Details (Purchasing From)",
-  "purchase-orders": "Purchase Order",
-  "turnover-report": "Turnover Report",
-  referrals: "Referral",
-  "import-export": "Import/Export",
-  users: "Users",
-  settings: "Settings",
-};
+
 
 const EXPORTABLE_MODULES = new Set([
   "companies", "to-companies", "invoices", "proforma-invoices", "purchases", "referrals",

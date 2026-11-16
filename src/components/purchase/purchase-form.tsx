@@ -1,48 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { purchaseSchema, type PurchaseFormData } from "@/lib/validations";
+import { useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { ProductAutocomplete, type WorkspaceProduct } from "@/components/product/product-autocomplete";
+import type { PurchaseFormData } from "@/lib/validations";
+import { Plus, Trash2 } from "lucide-react";
 
 interface CompanyOption { id: number; name: string; gstNo?: string | null; panNo?: string | null; phone?: string | null; email?: string | null; address?: string | null; state?: string | null; status?: string; }
-
-interface InvoiceOption {
-  id: number;
-  orderId: string;
-  invoiceNo: string | null;
-  date: string;
-  gst: string | null;
-  amount: string | null;
-  total: string | null;
-  cgstRate: string;
-  sgstRate: string;
-  igstRate: string;
-  billToName: string | null;
-  billToGstin: string | null;
-  billToState: string | null;
-  company: { name: string } | null;
-  toCompany: { name: string; gstNo: string | null; state: string | null } | null;
-}
+interface VendorOption { id: number; name: string; gstin?: string | null; state?: string | null; mobile?: string | null; }
+type PurchaseLine = { productId: number | null; description: string; hsn: string; quantity: string; unit: string; unitPrice: string; gstRate: string };
+const blankLine = (): PurchaseLine => ({ productId: null, description: "", hsn: "", quantity: "1", unit: "Nos", unitPrice: "0", gstRate: "0" });
+const money = (value: number) => `₹${value.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface PurchaseFormProps {
   purchase?: {
-    id: number;
-    companyId?: number | null;
-    gstNo: string | null;
-    partyName: string;
-    invoiceNo: string;
-    invoiceDate: string | Date;
-    state: string | null;
-    rate: number | string;
-    taxableValue: number | string;
-    igst: number | string;
-    cgst: number | string;
-    sgst: number | string;
-    totalAmount: number | string;
+    id: number; companyId?: number | null; gstNo: string | null; partyName: string; invoiceNo: string; invoiceDate: string | Date; state: string | null;
+    rate: number | string; taxableValue: number | string; igst: number | string; cgst: number | string; sgst: number | string; totalAmount: number | string;
+    items?: Array<{ productId?: number | null; description: string; hsn?: string | null; quantity: number | string; unit: string; unitPrice: number | string; gstRate: number | string }>;
   };
   onSubmit: (data: PurchaseFormData) => void;
   onCancel: () => void;
@@ -50,308 +25,60 @@ interface PurchaseFormProps {
 }
 
 export function PurchaseForm({ purchase, onSubmit, onCancel, isLoading }: PurchaseFormProps) {
-  const [invoices, setInvoices] = useState<InvoiceOption[]>([]);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
-  const [invoicesLoading, setInvoicesLoading] = useState(true);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    setValue,
-    watch,
-  } = useForm({
-    resolver: zodResolver(purchaseSchema),
-    defaultValues: {
-      companyId: purchase?.companyId ?? null,
-      gstNo: purchase?.gstNo ?? "",
-      partyName: purchase?.partyName ?? "",
-      invoiceNo: purchase?.invoiceNo ?? "",
-      invoiceDate: purchase?.invoiceDate
-        ? typeof purchase.invoiceDate === "string"
-          ? purchase.invoiceDate.slice(0, 10)
-          : purchase.invoiceDate.toISOString().slice(0, 10)
-        : "",
-      state: purchase?.state ?? "",
-      rate: Number(purchase?.rate ?? 0),
-      taxableValue: Number(purchase?.taxableValue ?? 0),
-      igst: Number(purchase?.igst ?? 0),
-      cgst: Number(purchase?.cgst ?? 0),
-      sgst: Number(purchase?.sgst ?? 0),
-      totalAmount: Number(purchase?.totalAmount ?? 0),
-    },
-  });
+  const [vendors, setVendors] = useState<VendorOption[]>([]);
+  const [companyId, setCompanyId] = useState(purchase?.companyId ? String(purchase.companyId) : "");
+  const [partyName, setPartyName] = useState(purchase?.partyName || "");
+  const [gstNo, setGstNo] = useState(purchase?.gstNo || "");
+  const [invoiceNo, setInvoiceNo] = useState(purchase?.invoiceNo || "");
+  const [invoiceDate, setInvoiceDate] = useState(purchase?.invoiceDate ? new Date(purchase.invoiceDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+  const [state, setState] = useState(purchase?.state || "");
+  const [interState, setInterState] = useState(Number(purchase?.igst || 0) > 0);
+  const [items, setItems] = useState<PurchaseLine[]>(purchase?.items?.length ? purchase.items.map(item => ({ productId: item.productId ?? null, description: item.description, hsn: item.hsn || "", quantity: String(item.quantity), unit: item.unit || "Nos", unitPrice: String(item.unitPrice), gstRate: String(item.gstRate) })) : purchase ? [{ productId: null, description: "Purchase of goods / services", hsn: "", quantity: "1", unit: "Nos", unitPrice: String(purchase.taxableValue || 0), gstRate: String(purchase.rate || 0) }] : [blankLine()]);
 
   useEffect(() => {
-    async function fetchCompanies() { try { const res = await fetch("/api/companies?page=1&pageSize=200"); if (res.ok) { const json = await res.json(); setCompanies((json.data || []).filter((c: CompanyOption) => c.status === "active")); } } catch { /* keep form usable if company list is unavailable */ } }
-    fetchCompanies();
-    async function fetchInvoices() {
-      try {
-        const res = await fetch("/api/invoices/list");
-        if (res.ok) {
-          const data = await res.json();
-          setInvoices(data);
-        }
-      } catch {
-      } finally {
-        setInvoicesLoading(false);
-      }
-    }
-    fetchInvoices();
+    fetch("/api/companies?page=1&pageSize=200").then(r => r.ok ? r.json() : null).then(json => setCompanies((json?.data || []).filter((c: CompanyOption) => c.status === "active"))).catch(() => {});
+    fetch("/api/vendors?status=all&page=1&pageSize=100").then(r => r.ok ? r.json() : null).then(json => setVendors(json?.data || [])).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (purchase) {
-      reset({
-        companyId: purchase.companyId ?? null,
-        gstNo: purchase.gstNo ?? "",
-        partyName: purchase.partyName,
-        invoiceNo: purchase.invoiceNo,
-        invoiceDate:
-          typeof purchase.invoiceDate === "string"
-            ? purchase.invoiceDate.slice(0, 10)
-            : purchase.invoiceDate.toISOString().slice(0, 10),
-        state: purchase.state ?? "",
-        rate: Number(purchase.rate),
-        taxableValue: Number(purchase.taxableValue),
-        igst: Number(purchase.igst),
-        cgst: Number(purchase.cgst),
-        sgst: Number(purchase.sgst),
-        totalAmount: Number(purchase.totalAmount),
-      });
-    }
-  }, [purchase, reset]);
-
-  const handleInvoiceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedOrderId = e.target.value;
-    const inv = invoices.find((i) => i.orderId === selectedOrderId);
-    if (!inv) return;
-
-    const partyName = inv.billToName || inv.toCompany?.name || inv.company?.name || "";
-    const gstNo = inv.billToGstin || inv.toCompany?.gstNo || inv.gst || "";
-    const state = inv.billToState || inv.toCompany?.state || "";
-    const rate = Number(inv.cgstRate) + Number(inv.sgstRate) || Number(inv.igstRate) || 0;
-    const taxableValue = Number(inv.amount || 0);
-    const igst = Number(inv.igstRate) > 0 ? (taxableValue * Number(inv.igstRate)) / 100 : 0;
-    const cgst = Number(inv.cgstRate) > 0 ? (taxableValue * Number(inv.cgstRate)) / 100 : 0;
-    const sgst = Number(inv.sgstRate) > 0 ? (taxableValue * Number(inv.sgstRate)) / 100 : 0;
-    const totalAmount = Number(inv.total || 0) || taxableValue + igst + cgst + sgst;
-
-    const dateStr = inv.date ? new Date(inv.date).toISOString().slice(0, 10) : "";
-
-    setValue("invoiceNo", inv.invoiceNo || inv.orderId);
-    setValue("invoiceDate", dateStr);
-    setValue("partyName", partyName);
-    setValue("gstNo", gstNo);
-    setValue("state", state);
-    setValue("rate", rate);
-    setValue("taxableValue", taxableValue);
-    setValue("igst", igst);
-    setValue("cgst", cgst);
-    setValue("sgst", sgst);
-    setValue("totalAmount", totalAmount);
+  const lineTotals = useMemo(() => items.map(item => {
+    const taxableValue = Math.max(0, Number(item.quantity) || 0) * Math.max(0, Number(item.unitPrice) || 0);
+    const tax = taxableValue * Math.max(0, Number(item.gstRate) || 0) / 100;
+    return { taxableValue, igst: interState ? tax : 0, cgst: interState ? 0 : tax / 2, sgst: interState ? 0 : tax / 2, totalAmount: taxableValue + tax };
+  }), [items, interState]);
+  const totals = useMemo(() => lineTotals.reduce((acc, line) => ({ taxableValue: acc.taxableValue + line.taxableValue, igst: acc.igst + line.igst, cgst: acc.cgst + line.cgst, sgst: acc.sgst + line.sgst, totalAmount: acc.totalAmount + line.totalAmount }), { taxableValue: 0, igst: 0, cgst: 0, sgst: 0, totalAmount: 0 }), [lineTotals]);
+  const updateLine = (index: number, patch: Partial<PurchaseLine>) => setItems(old => old.map((line, i) => i === index ? { ...line, ...patch } : line));
+  const selectProduct = (index: number, product: WorkspaceProduct) => updateLine(index, { productId: product.id, description: product.name, hsn: product.hsnCode || "", unit: product.unit || "Nos", unitPrice: String(product.purchaseRate ?? 0), gstRate: String(product.gstRate ?? 0) });
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const taxableValue = Number(totals.taxableValue.toFixed(2));
+    const igst = Number(totals.igst.toFixed(2)); const cgst = Number(totals.cgst.toFixed(2)); const sgst = Number(totals.sgst.toFixed(2));
+    const weightedRate = taxableValue ? Number((items.reduce((sum, item, i) => sum + lineTotals[i].taxableValue * Number(item.gstRate || 0), 0) / taxableValue).toFixed(2)) : 0;
+    onSubmit({ companyId: companyId ? Number(companyId) : null, gstNo, partyName, invoiceNo, invoiceDate, state, rate: weightedRate, taxableValue, igst, cgst, sgst, totalAmount: Number(totals.totalAmount.toFixed(2)), items: items.map((item, i) => ({ productId: item.productId, description: item.description.trim(), hsn: item.hsn, quantity: Number(item.quantity), unit: item.unit, unitPrice: Number(item.unitPrice), gstRate: Number(item.gstRate), taxableValue: Number(lineTotals[i].taxableValue.toFixed(2)), igst: Number(lineTotals[i].igst.toFixed(2)), cgst: Number(lineTotals[i].cgst.toFixed(2)), sgst: Number(lineTotals[i].sgst.toFixed(2)), totalAmount: Number(lineTotals[i].totalAmount.toFixed(2)) })) });
   };
 
-  const selectedCompanyId = watch("companyId");
-  const selectedCompany = companies.find((company) => company.id === Number(selectedCompanyId));
-  const selectedInvoiceNo = watch("invoiceNo");
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="space-y-2">
-        <Label htmlFor="purchaseCompany">Company Name</Label>
-        <select
-          id="purchaseCompany"
-          value={selectedCompanyId ?? ""}
-          onChange={(event) => setValue("companyId", event.target.value ? Number(event.target.value) : null, { shouldValidate: true, shouldDirty: true })}
-          className={cn("border-border/60 bg-card focus:ring-primary/20 h-10 w-full rounded-lg border px-3 text-sm focus:ring-2 focus:outline-none", !selectedCompanyId && "text-muted-foreground")}
-        >
-          <option value="">Select Company</option>
-          {companies.map((company) => (
-            <option key={company.id} value={company.id}>{company.name}</option>
-          ))}
-        </select>
-        {selectedCompany && (
-          <p className="text-muted-foreground text-xs">
-            {[selectedCompany.gstNo ? `GSTIN: ${selectedCompany.gstNo}` : "", selectedCompany.state || "", selectedCompany.address || ""].filter(Boolean).join(" · ")}
-          </p>
-        )}
-        {companies.length === 0 && <p className="text-muted-foreground text-xs">No active companies available for this workspace.</p>}
-      </div>
-      <div className="grid gap-5 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="partyName">
-            Party Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="partyName"
-            {...register("partyName")}
-            aria-invalid={!!errors.partyName}
-          />
-          {errors.partyName && (
-            <p className="text-destructive text-xs">{errors.partyName.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="invoiceSelect">
-            Invoice Number <span className="text-destructive">*</span>
-          </Label>
-          <div className="relative">
-            <select
-              id="invoiceSelect"
-              value={selectedInvoiceNo}
-              onChange={handleInvoiceChange}
-              className={cn(
-                "border-border/60 bg-card focus:ring-primary/20 h-10 w-full appearance-none rounded-lg border py-2 pr-8 pl-3 text-sm transition-all focus:ring-2 focus:outline-none",
-                !selectedInvoiceNo && "text-muted-foreground"
-              )}
-            >
-              <option value="">
-                {invoicesLoading ? "Loading invoices..." : "Select an invoice"}
-              </option>
-              {invoices.map((inv) => (
-                <option key={inv.id} value={inv.orderId} className="text-foreground">
-                  {inv.invoiceNo || inv.orderId}
-                  {inv.billToName ? ` — ${inv.billToName}` : ""}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2">
-              <svg className="text-muted-foreground size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-          <Input
-            id="invoiceNo"
-            type="hidden"
-            {...register("invoiceNo")}
-          />
-          {errors.invoiceNo && (
-            <p className="text-destructive text-xs">{errors.invoiceNo.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="invoiceDate">
-            Invoice Date <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="invoiceDate"
-            type="date"
-            {...register("invoiceDate")}
-            aria-invalid={!!errors.invoiceDate}
-          />
-          {errors.invoiceDate && (
-            <p className="text-destructive text-xs">{errors.invoiceDate.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="gstNo">GST No</Label>
-          <Input id="gstNo" {...register("gstNo")} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="state">State</Label>
-          <Input id="state" {...register("state")} />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="rate">Rate (%)</Label>
-          <Input
-            id="rate"
-            type="number"
-            step="0.01"
-            {...register("rate")}
-            aria-invalid={!!errors.rate}
-          />
-          {errors.rate && (
-            <p className="text-destructive text-xs">{errors.rate.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="taxableValue">Taxable Value</Label>
-          <Input
-            id="taxableValue"
-            type="number"
-            step="0.01"
-            {...register("taxableValue")}
-            aria-invalid={!!errors.taxableValue}
-          />
-          {errors.taxableValue && (
-            <p className="text-destructive text-xs">{errors.taxableValue.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="igst">IGST</Label>
-          <Input
-            id="igst"
-            type="number"
-            step="0.01"
-            {...register("igst")}
-            aria-invalid={!!errors.igst}
-          />
-          {errors.igst && (
-            <p className="text-destructive text-xs">{errors.igst.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="cgst">CGST</Label>
-          <Input
-            id="cgst"
-            type="number"
-            step="0.01"
-            {...register("cgst")}
-            aria-invalid={!!errors.cgst}
-          />
-          {errors.cgst && (
-            <p className="text-destructive text-xs">{errors.cgst.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="sgst">SGST</Label>
-          <Input
-            id="sgst"
-            type="number"
-            step="0.01"
-            {...register("sgst")}
-            aria-invalid={!!errors.sgst}
-          />
-          {errors.sgst && (
-            <p className="text-destructive text-xs">{errors.sgst.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="totalAmount">
-            Total Invoice Value <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            id="totalAmount"
-            type="number"
-            step="0.01"
-            {...register("totalAmount")}
-            aria-invalid={!!errors.totalAmount}
-          />
-          {errors.totalAmount && (
-            <p className="text-destructive text-xs">{errors.totalAmount.message}</p>
-          )}
-        </div>
-      </div>
-      <div className="border-border/60 flex justify-end gap-3 border-t pt-5">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isLoading}
-          className="border-border/60 text-muted-foreground hover:bg-muted/50 hover:text-foreground inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="btn-gradient text-primary-foreground inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition-all disabled:opacity-50"
-        >
-          {isLoading ? "Saving..." : purchase ? "Update Purchase" : "Add Purchase"}
-        </button>
-      </div>
-    </form>
-  );
+  return <form onSubmit={submit} className="space-y-6">
+    <section className="grid gap-4 rounded-xl border p-4 md:grid-cols-2">
+      <div className="space-y-2"><Label>Company Name</Label><select value={companyId} onChange={e => { const id = e.target.value; setCompanyId(id); const company = companies.find(c => c.id === Number(id)); if (company) { setGstNo(company.gstNo || ""); setState(company.state || ""); } }} className="bg-background border-border h-10 w-full rounded-lg border px-3 text-sm"><option value="">Select company</option>{companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+      <div className="space-y-2"><Label>Vendor Name *</Label><Input required maxLength={100} list="purchase-vendor-options" autoComplete="off" placeholder="Search or enter vendor name" value={partyName} onChange={e => { const value = e.target.value; setPartyName(value); const vendor = vendors.find(item => item.name.toLowerCase() === value.trim().toLowerCase()); if (vendor) { setGstNo(vendor.gstin || ""); setState(vendor.state || ""); } }} /><datalist id="purchase-vendor-options">{vendors.map(vendor => <option key={vendor.id} value={vendor.name}>{[vendor.gstin, vendor.state].filter(Boolean).join(" · ")}</option>)}</datalist><p className="text-muted-foreground text-xs">Select an existing vendor or enter a new vendor name.</p></div>
+      <div className="space-y-2"><Label>Supplier Invoice Number *</Label><Input required maxLength={50} value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} /></div>
+      <div className="space-y-2"><Label>Invoice Date *</Label><Input required type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} /></div>
+      <div className="space-y-2"><Label>GSTIN</Label><Input value={gstNo} onChange={e => setGstNo(e.target.value)} /></div>
+      <div className="space-y-2"><Label>State</Label><Input value={state} onChange={e => setState(e.target.value)} /></div>
+    </section>
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Purchased Products</h3><p className="text-muted-foreground text-xs">Select products by Product ID, name or SKU. Product details and purchase rates fill automatically.</p></div><button type="button" onClick={() => setItems(old => [...old, blankLine()])} className="text-primary inline-flex items-center gap-1 rounded-lg border px-3 py-2 text-sm font-medium"><Plus className="size-4"/> Add product</button></div>
+      <div className="flex items-center gap-2"><input id="purchase-interstate" type="checkbox" checked={interState} onChange={e => setInterState(e.target.checked)} className="size-4"/><Label htmlFor="purchase-interstate">Inter-state purchase (IGST)</Label></div>
+      <div className="space-y-3">{items.map((item, index) => <div key={index} className="grid gap-3 rounded-xl border p-3 md:grid-cols-12 md:items-end">
+        <div className="space-y-1 md:col-span-4"><Label>Product *</Label><ProductAutocomplete value={item.description} onChange={value => updateLine(index, { description: value, productId: null })} onSelect={product => selectProduct(index, product)} className="h-10 w-full rounded-lg border bg-background px-3 text-sm" /></div>
+        <div className="space-y-1 md:col-span-2"><Label>HSN</Label><Input value={item.hsn} onChange={e => updateLine(index, { hsn: e.target.value })}/></div>
+        <div className="space-y-1 md:col-span-1"><Label>Qty</Label><Input type="number" min="0.001" step="0.001" value={item.quantity} onChange={e => updateLine(index, { quantity: e.target.value })}/></div>
+        <div className="space-y-1 md:col-span-1"><Label>Unit</Label><Input value={item.unit} onChange={e => updateLine(index, { unit: e.target.value })}/></div>
+        <div className="space-y-1 md:col-span-1"><Label>Rate</Label><Input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateLine(index, { unitPrice: e.target.value })}/></div>
+        <div className="space-y-1 md:col-span-1"><Label>GST %</Label><Input type="number" min="0" max="100" step="0.01" value={item.gstRate} onChange={e => updateLine(index, { gstRate: e.target.value })}/></div>
+        <div className="flex items-center justify-between gap-2 md:col-span-2"><div><Label>Line Total</Label><p className="pt-2 text-sm font-semibold">{money(lineTotals[index].totalAmount)}</p></div><button type="button" disabled={items.length === 1} onClick={() => setItems(old => old.filter((_, i) => i !== index))} className="rounded-lg p-2 text-red-600 hover:bg-red-50 disabled:opacity-30" title="Remove product"><Trash2 className="size-4"/></button></div>
+      </div>)}</div>
+    </section>
+    <section className="ml-auto grid max-w-xl gap-2 rounded-xl border p-4 text-sm sm:grid-cols-2"><div className="text-muted-foreground">Taxable value</div><div className="text-right font-medium">{money(totals.taxableValue)}</div><div className="text-muted-foreground">IGST</div><div className="text-right">{money(totals.igst)}</div><div className="text-muted-foreground">CGST</div><div className="text-right">{money(totals.cgst)}</div><div className="text-muted-foreground">SGST</div><div className="text-right">{money(totals.sgst)}</div><div className="border-t pt-2 font-semibold">Total Invoice Value</div><div className="border-t pt-2 text-right text-base font-bold">{money(totals.totalAmount)}</div></section>
+    <div className="flex justify-end gap-3 border-t pt-5"><button type="button" onClick={onCancel} disabled={isLoading} className="rounded-lg border px-4 py-2 text-sm">Cancel</button><button type="submit" disabled={isLoading || !partyName.trim() || !invoiceNo.trim() || items.some(item => !item.description.trim() || Number(item.quantity) <= 0)} className="btn-gradient rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{isLoading ? "Saving..." : purchase ? "Update Purchase" : "Add Purchase"}</button></div>
+  </form>;
 }

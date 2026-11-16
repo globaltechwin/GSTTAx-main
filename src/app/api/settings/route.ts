@@ -90,7 +90,7 @@ export async function PUT(request: NextRequest) {
       const start = Number(values.invoiceNumberStart ?? "1");
       const padding = Number(values.invoiceNumberPadding ?? "2");
       if (!/^[A-Za-z0-9_-]{1,8}$/.test(prefix)) return NextResponse.json({ error: "Invoice prefix must contain 1–8 letters, numbers, hyphens or underscores." }, { status: 400 });
-      if (!validateInvoiceNumberFormat(format)) return NextResponse.json({ error: "Invalid invoice number format. Include both {number} and {FY}; supported tokens are {prefix}, {number} and {FY}. The format must fit within 50 characters." }, { status: 400 });
+      if (!validateInvoiceNumberFormat(format)) return NextResponse.json({ error: "Invalid invoice number format. Include {number}; {FY} is optional. Supported tokens are {prefix}, {number} and {FY}. The format must fit within 50 characters." }, { status: 400 });
       if (!Number.isSafeInteger(start) || start < 1 || start > 99999999) return NextResponse.json({ error: "Starting number must be between 1 and 99,999,999." }, { status: 400 });
       if (!Number.isInteger(padding) || padding < 1 || padding > 8) return NextResponse.json({ error: "Number padding must be between 1 and 8 digits." }, { status: 400 });
       const groups = [
@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest) {
         const groupStart = Number(values[`${key}NumberStart`] ?? "1");
         const groupPadding = Number(values[`${key}NumberPadding`] ?? "3");
         if (!/^[A-Za-z0-9_-]{1,8}$/.test(groupPrefix)) return NextResponse.json({ error: `${label} prefix must contain 1–8 letters, numbers, hyphens or underscores.` }, { status: 400 });
-        if (!validateInvoiceNumberFormat(groupFormat)) return NextResponse.json({ error: `${label} format must include {number} and {FY}; supported tokens are {prefix}, {number} and {FY}.` }, { status: 400 });
+        if (!validateInvoiceNumberFormat(groupFormat)) return NextResponse.json({ error: `${label} format must include {number}; {FY} is optional. Supported tokens are {prefix}, {number} and {FY}.` }, { status: 400 });
         if (!Number.isSafeInteger(groupStart) || groupStart < 1 || groupStart > 99999999) return NextResponse.json({ error: `${label} starting number must be between 1 and 99,999,999.` }, { status: 400 });
         if (!Number.isInteger(groupPadding) || groupPadding < 1 || groupPadding > 8) return NextResponse.json({ error: `${label} number padding must be between 1 and 8 digits.` }, { status: 400 });
       }

@@ -56,7 +56,6 @@ export function PurchasesClient() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [dialog, setDialog] = useState<DialogMode>(null);
-  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
   const [showFilters, setShowFilters] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -160,7 +159,7 @@ export function PurchasesClient() {
     const rows = purchase ? [purchase] : data;
     if (rows.length === 0) return;
 
-    const headers = ["S No", "Gst No", "Party Name", "Invoice No", "Invoice Date", "State", "Rate", "Taxable Value", "IGST", "CGST", "SGST", "Total Invoice Value"];
+    const headers = ["S No", "Gst No", "Vendor Name", "Invoice No", "Invoice Date", "State", "Rate", "Taxable Value", "IGST", "CGST", "SGST", "Total Invoice Value"];
 
     const dataRows = rows.map((p, i) => [
       i + 1,
@@ -212,8 +211,8 @@ export function PurchasesClient() {
     const html = `<!doctype html><html><head><title>Purchased Invoices ${safe(purchase.invoiceNo)}</title><style>
       *{box-sizing:border-box}body{font:13px Arial,sans-serif;color:#222;margin:0;padding:28px}.top{display:flex;gap:18px;align-items:center;border-bottom:2px solid #333;padding-bottom:16px}.logo{max-width:125px;max-height:85px;object-fit:contain}.brand{flex:1}.brand h1{font-size:20px;margin:0 0 7px}.muted{color:#555;line-height:1.55}.title{text-align:center;margin:24px 0;font-size:20px;letter-spacing:1px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:1px solid #bbb;padding:14px}.label{color:#666;font-size:11px;text-transform:uppercase;margin-bottom:4px}.value{font-weight:600}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #888;padding:10px;text-align:left}th{background:#f2f2f2}.num{text-align:right}.total{margin:16px 0 0 auto;width:300px}.total div{display:flex;justify-content:space-between;padding:5px 0}.grand{font-size:16px;font-weight:bold;border-top:2px solid #333;margin-top:6px;padding-top:9px!important}.sign{margin-top:65px;text-align:right;page-break-inside:avoid}.sign img{display:block;margin-left:auto;object-fit:contain;object-position:right bottom}.footer{margin-top:35px;border-top:1px solid #ccc;padding-top:8px;color:#777;font-size:10px}@media print{body{padding:12mm}}</style></head><body>
       ${company ? `<header class="top">${company.logoUrl ? `<img class="logo" src="${safe(company.logoUrl)}" alt="Company logo">` : ""}<div class="brand"><h1>${safe(company.name)}</h1><div class="muted">${company.address ? `${safe(company.address)}<br>` : ""}${company.gstNo ? `GSTIN: ${safe(company.gstNo)}<br>` : ""}${company.panNo ? `PAN: ${safe(company.panNo)}<br>` : ""}${company.phone ? `Phone: ${safe(company.phone)} ` : ""}${company.email ? `Email: ${safe(company.email)}` : ""}</div></div></header>` : ""}
-      <h2 class="title">Purchased Invoices</h2><section class="grid"><div><div class="label">Supplier / Party</div><div class="value">${safe(purchase.partyName)}</div><div class="muted">${purchase.gstNo ? `GSTIN: ${safe(purchase.gstNo)}` : ""}<br>${safe(purchase.state || "")}</div></div><div><div class="label">Invoice Details</div><div class="value">Invoice No: ${safe(purchase.invoiceNo)}</div><div class="muted">Date: ${safe(new Date(purchase.invoiceDate).toLocaleDateString("en-IN"))}</div></div></section>
-      <table><thead><tr><th>Description</th><th class="num">Tax Rate</th><th class="num">Taxable Value (₹)</th><th class="num">IGST (₹)</th><th class="num">CGST (₹)</th><th class="num">SGST (₹)</th></tr></thead><tbody><tr><td>Purchase of goods / services</td><td class="num">${money(purchase.rate)}%</td><td class="num">${money(purchase.taxableValue)}</td><td class="num">${money(purchase.igst)}</td><td class="num">${money(purchase.cgst)}</td><td class="num">${money(purchase.sgst)}</td></tr></tbody></table>
+      <h2 class="title">Purchased Invoices</h2><section class="grid"><div><div class="label">Vendor Name</div><div class="value">${safe(purchase.partyName)}</div><div class="muted">${purchase.gstNo ? `GSTIN: ${safe(purchase.gstNo)}` : ""}<br>${safe(purchase.state || "")}</div></div><div><div class="label">Invoice Details</div><div class="value">Invoice No: ${safe(purchase.invoiceNo)}</div><div class="muted">Date: ${safe(new Date(purchase.invoiceDate).toLocaleDateString("en-IN"))}</div></div></section>
+      <table><thead><tr><th>Product / Description</th><th>HSN</th><th class="num">Qty</th><th>Unit</th><th class="num">Rate</th><th class="num">GST %</th><th class="num">Taxable Value (₹)</th><th class="num">IGST (₹)</th><th class="num">CGST (₹)</th><th class="num">SGST (₹)</th><th class="num">Total (₹)</th></tr></thead><tbody>${(purchase.items?.length ? purchase.items : [{description:"Purchase of goods / services",hsn:"",quantity:1,unit:"—",unitPrice:purchase.taxableValue,gstRate:purchase.rate,taxableValue:purchase.taxableValue,igst:purchase.igst,cgst:purchase.cgst,sgst:purchase.sgst,totalAmount:purchase.totalAmount}]).map(item=>`<tr><td>${safe(item.description)}</td><td>${safe(item.hsn||"")}</td><td class="num">${safe(item.quantity)}</td><td>${safe(item.unit)}</td><td class="num">${money(item.unitPrice)}</td><td class="num">${money(item.gstRate)}%</td><td class="num">${money(item.taxableValue)}</td><td class="num">${money(item.igst)}</td><td class="num">${money(item.cgst)}</td><td class="num">${money(item.sgst)}</td><td class="num">${money(item.totalAmount)}</td></tr>`).join("")}</tbody></table>
       <div class="total"><div><span>Taxable Value</span><b>₹ ${money(purchase.taxableValue)}</b></div><div><span>IGST</span><b>₹ ${money(purchase.igst)}</b></div><div><span>CGST</span><b>₹ ${money(purchase.cgst)}</b></div><div><span>SGST</span><b>₹ ${money(purchase.sgst)}</b></div><div class="grand"><span>Total Invoice Value</span><span>₹ ${money(purchase.totalAmount)}</span></div></div>
       <div class="sign">${company?.signatureUrl ? `<img src="${safe(company.signatureUrl)}" style="width:${width}px;height:${height}px" alt="Authorised signatory signature">` : ""}<b>Authorised Signatory</b></div><div class="footer">This document is generated from the Purchased Invoices records.</div>
       </body></html>`;
@@ -226,40 +225,6 @@ export function PurchasesClient() {
   const totalPages = Math.ceil(total / pageSize);
 
   const columns: ColumnDef<Purchase>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <input
-          type="checkbox"
-          checked={table.getIsAllPageRowsSelected()}
-          onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
-          className="border-border/60 bg-card accent-primary size-4 cursor-pointer rounded"
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <input
-          type="checkbox"
-          checked={row.getIsSelected()}
-          onChange={(e) => row.toggleSelected(e.target.checked)}
-          className="border-border/60 bg-card accent-primary size-4 cursor-pointer rounded"
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-      size: 40,
-    },
-    {
-      id: "srNo",
-      header: "#",
-      cell: (info) => (
-        <span className="text-muted-foreground font-medium">
-          {(page - 1) * pageSize + info.row.index + 1}
-        </span>
-      ),
-      size: 50,
-    },
     {
       accessorKey: "gstNo",
       header: "GST No",
@@ -277,7 +242,7 @@ export function PurchasesClient() {
     },
     {
       accessorKey: "partyName",
-      header: "Party Name",
+      header: "Vendor Name",
       cell: (info) => (
         <div className="flex items-center gap-3">
           <div className="from-primary/10 to-primary/5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br">
@@ -424,10 +389,9 @@ export function PurchasesClient() {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, pagination: { pageIndex: page - 1, pageSize }, rowSelection },
+    state: { sorting, pagination: { pageIndex: page - 1, pageSize } },
     pageCount: totalPages,
     onSortingChange: setSorting,
-    onRowSelectionChange: setRowSelection,
     onPaginationChange: (updater) => {
       if (typeof updater === "function") {
         const newState = updater({ pageIndex: page - 1, pageSize });
@@ -536,11 +500,6 @@ export function PurchasesClient() {
               <ChevronDown className="text-muted-foreground pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2" />
             </div>
             <span className="text-muted-foreground text-sm">entries</span>
-            {Object.keys(rowSelection).length > 0 && (
-              <span className="bg-primary/10 text-primary animate-fade-in inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold">
-                {Object.keys(rowSelection).length} selected
-              </span>
-            )}
           </div>
           <div className="relative">
             <Search className="text-muted-foreground/50 absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -644,11 +603,7 @@ export function PurchasesClient() {
                     key={row.id}
                     className={cn(
                       "border-border/40 border-b transition-colors last:border-0",
-                      row.getIsSelected()
-                        ? "bg-primary/5"
-                        : index % 2 === 0
-                          ? "hover:bg-muted/30 bg-transparent"
-                          : "bg-muted/10 hover:bg-muted/30"
+                      index % 2 === 0 ? "hover:bg-muted/30 bg-transparent" : "bg-muted/10 hover:bg-muted/30"
                     )}
                   >
                     {row.getVisibleCells().map((cell) => (
@@ -749,7 +704,7 @@ export function PurchasesClient() {
             className="border-border/60 bg-popover animate-fade-in fixed z-50 w-48 rounded-xl border p-1.5 shadow-xl"
             style={{ top: menuPos.top, right: menuPos.right }}
           >
-            <button onClick={(e) => { e.stopPropagation(); handlePrint(purchase); setOpenMenuId(null); }} className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"><Printer className="text-muted-foreground size-4" />Print Purchased Invoices</button>
+            <button onClick={(e) => { e.stopPropagation(); handlePrint(purchase); setOpenMenuId(null); }} className="text-foreground hover:bg-muted/60 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors"><Printer className="text-muted-foreground size-4" />Print / PDF</button>
             {(user.role === "ADMIN" || canPerform(user.actionPermissions, "purchases", "update")) && <button
               onClick={(e) => {
                 e.stopPropagation();

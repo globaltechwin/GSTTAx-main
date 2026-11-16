@@ -56,7 +56,7 @@ export function formatInvoiceNumber(
 }
 
 export function validateInvoiceNumberFormat(format: string): boolean {
-  if (!format || format.length > 50 || !format.includes("{number}") || !format.includes("{FY}")) return false;
+  if (!format || format.length > 50 || !format.includes("{number}")) return false;
   const withoutTokens = format.replace(/\{(?:prefix|number|FY)\}/g, "");
   if (/[{}]/.test(withoutTokens)) return false;
   const expandedLength = format
@@ -104,4 +104,27 @@ export function extractInvoiceSequenceValue(
   const legacyMatch = invoiceNo.match(/^\s*(\d+)\s*$/);
   const legacyValue = legacyMatch ? Number.parseInt(legacyMatch[1], 10) : 0;
   return Number.isSafeInteger(legacyValue) && legacyValue > 0 ? legacyValue : 0;
+}
+
+
+/**
+ * Update only the financial-year token embedded in an existing document number
+ * when its document date changes. The sequence and any user-authored text stay intact.
+ * Dates are interpreted in the Indian business timezone.
+ */
+export function updateDocumentNumberFinancialYear(
+  documentNumber: string,
+  previousDate: string,
+  nextDate: string,
+): string {
+  if (!documentNumber || !previousDate || !nextDate || previousDate === nextDate) return documentNumber;
+  const parseDate = (value: string) => new Date(`${value.slice(0, 10)}T12:00:00+05:30`);
+  const previous = parseDate(previousDate);
+  const next = parseDate(nextDate);
+  if (Number.isNaN(previous.getTime()) || Number.isNaN(next.getTime())) return documentNumber;
+  const previousFY = getIndianFinancialYear(previous);
+  const nextFY = getIndianFinancialYear(next);
+  if (previousFY === nextFY) return documentNumber;
+  // Replace the old FY wherever the Admin placed the {FY} token in their custom format.
+  return documentNumber.replaceAll(previousFY, nextFY);
 }

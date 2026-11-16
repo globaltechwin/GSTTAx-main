@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         skip,
         take: pageSize,
         include: {
+          items: true,
           company: { select: { id: true, name: true, gstNo: true, panNo: true, phone: true, email: true, address: true, state: true, logoUrl: true, signatureUrl: true, signatureWidth: true, signatureHeight: true } },
           workspace: {
             select: { id: true, username: true, firstName: true, lastName: true },
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { companyId, gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst } =
+    const { companyId, gstNo, partyName, invoiceNo, invoiceDate, state, rate, taxableValue, igst, cgst, sgst, items } =
       parsed.data;
     if (companyId) {
       const company = await prisma.company.findFirst({ where: { id: companyId, adminId: access.user.workspaceId, status: "active" }, select: { id: true } });
@@ -83,6 +84,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Purchase total is out of range" }, { status: 400 });
     }
 
+    if (items.length) {
+      const productIds = [...new Set(items.map(item => item.productId).filter((id): id is number => Boolean(id)))];
+      if (productIds.length) {
+        const validProducts = await prisma.product.count({ where: { id: { in: productIds }, adminId: access.user.workspaceId } });
+        if (validProducts !== productIds.length) return NextResponse.json({ error: "One or more selected products are invalid for this workspace" }, { status: 400 });
+      }
+    }
     const purchase = await prisma.purchase.create({
       data: {
         adminId: access.user.workspaceId!,
@@ -98,6 +106,7 @@ export async function POST(request: NextRequest) {
         cgst: cgst ?? 0,
         sgst: sgst ?? 0,
         totalAmount: (taxableCents + taxCents) / 100,
+        items: items.length ? { create: items.map(item => ({ productId: item.productId || null, description: item.description, hsn: item.hsn || null, quantity: item.quantity, unit: item.unit || "Nos", unitPrice: item.unitPrice, gstRate: item.gstRate, taxableValue: item.taxableValue, igst: item.igst ?? 0, cgst: item.cgst ?? 0, sgst: item.sgst ?? 0, totalAmount: item.totalAmount })) } : undefined,
       },
     });
 

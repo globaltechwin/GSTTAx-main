@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ProductAutocomplete, type WorkspaceProduct } from "@/components/product/product-autocomplete";
+import { updateDocumentNumberFinancialYear } from "@/lib/invoice-numbering";
 
 interface FullCompany {
   id: number;
@@ -830,10 +831,10 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                 value={invoiceNo}
                 onChange={(e) => { setInvoiceNo(e.target.value); setManualInvoiceNoEdited(true); }}
                 placeholder={automaticInvoiceNo ? "Generated automatically" : "Enter invoice number"}
-                readOnly={isEdit || !allowManualInvoiceNo}
-                className={`font-mono ${isEdit || !allowManualInvoiceNo ? "bg-muted/50" : ""}`}
+                readOnly={!isEdit && !allowManualInvoiceNo}
+                className={`font-mono ${!isEdit && !allowManualInvoiceNo ? "bg-muted/50" : ""}`} 
               />
-              {!isEdit && !allowManualInvoiceNo && <p className="text-muted-foreground text-xs">This number is generated automatically. Only your Admin can change the numbering settings.</p>}
+              {!isEdit && !allowManualInvoiceNo && <p className="text-muted-foreground text-xs">This number is generated automatically. Only your Admin can change the numbering settings.</p>}{isEdit && <p className="text-muted-foreground text-xs">You can change this number. It must be unique within this document type and workspace.</p>}
             </div>
 
             <div className="space-y-2">
@@ -844,7 +845,11 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                 id="invoiceDate"
                 type="date"
                 value={invoiceDate}
-                onChange={(e) => setInvoiceDate(e.target.value)}
+                onChange={(e) => {
+                  const nextDate = e.target.value;
+                  setInvoiceNo((current) => updateDocumentNumberFinancialYear(current, invoiceDate, nextDate));
+                  setInvoiceDate(nextDate);
+                }}
               />
             </div>
 

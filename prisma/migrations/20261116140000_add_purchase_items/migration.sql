@@ -1,0 +1,21 @@
+CREATE TABLE `purchase_items` (
+  `id` INTEGER NOT NULL AUTO_INCREMENT,
+  `purchase_id` INTEGER NOT NULL,
+  `product_id` INTEGER NULL,
+  `description` VARCHAR(255) NOT NULL,
+  `hsn` VARCHAR(20) NULL,
+  `quantity` DECIMAL(14,3) NOT NULL DEFAULT 1.00,
+  `unit` VARCHAR(20) NOT NULL DEFAULT 'Nos',
+  `unit_price` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  `gst_rate` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  `taxable_value` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  `igst` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  `cgst` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  `sgst` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  `total_amount` DECIMAL(14,2) NOT NULL DEFAULT 0.00,
+  PRIMARY KEY (`id`),
+  INDEX `purchase_items_purchase_id_idx` (`purchase_id`),
+  INDEX `purchase_items_product_id_idx` (`product_id`),
+  CONSTRAINT `purchase_items_purchase_id_fkey` FOREIGN KEY (`purchase_id`) REFERENCES `purchases` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `purchase_items_product_id_fkey` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

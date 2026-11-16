@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { MODULE_KEYS, type ModuleKey } from "@/lib/permissions";
+import { MODULE_KEYS, MODULE_LABELS, type ModuleKey } from "@/lib/permissions";
 
 interface AdminWorkspace {
   id: number;
@@ -37,10 +37,7 @@ const emptyForm: AdminForm = {
 };
 
 function formatModule(module: string): string {
-  return module
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return MODULE_LABELS[module as ModuleKey] ?? module;
 }
 
 export default function SuperadminAdminsPage() {

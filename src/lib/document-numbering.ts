@@ -12,10 +12,10 @@ type NumberingConfig = {
 };
 
 const defaults: Record<NumberedDocumentType, NumberingConfig> = {
-  TAX_INVOICE: { enabled: true, prefix: "IN", format: "{prefix}-{number}/{FY}", start: 1, padding: 2, allowManualOverride: false },
-  PROFORMA: { enabled: true, prefix: "PI", format: "{prefix}-{number}/{FY}", start: 1, padding: 3, allowManualOverride: false },
-  DELIVERY_CHALLAN: { enabled: true, prefix: "DC", format: "{prefix}-{number}/{FY}", start: 1, padding: 3, allowManualOverride: false },
-  PURCHASE_ORDER: { enabled: true, prefix: "PO", format: "{prefix}-{number}/{FY}", start: 1, padding: 3, allowManualOverride: false },
+  TAX_INVOICE: { enabled: true, prefix: "IN", format: "{prefix}-{number}/{FY}", start: 1, padding: 1, allowManualOverride: false },
+  PROFORMA: { enabled: true, prefix: "PI", format: "{prefix}-{number}/{FY}", start: 1, padding: 1, allowManualOverride: false },
+  DELIVERY_CHALLAN: { enabled: true, prefix: "DC", format: "{prefix}-{number}/{FY}", start: 1, padding: 1, allowManualOverride: false },
+  PURCHASE_ORDER: { enabled: true, prefix: "PO", format: "{prefix}-{number}/{FY}", start: 1, padding: 1, allowManualOverride: false },
 };
 
 const settingPrefix: Record<NumberedDocumentType, string> = {
@@ -36,8 +36,8 @@ export function parseDocumentNumbering(raw: unknown, type: NumberedDocumentType)
     enabled: value[`${prefix}NumberEnabled`] !== false && value[`${prefix}NumberEnabled`] !== "false",
     prefix: typeof value[`${prefix}NumberPrefix`] === "string" ? String(value[`${prefix}NumberPrefix`]).trim().slice(0, 8) : base.prefix,
     format: validateInvoiceNumberFormat(format) ? format : base.format,
-    start: Number.isSafeInteger(start) && start >= 1 && start <= 99_999_999 ? start : base.start,
-    padding: Number.isInteger(padding) && padding >= 1 && padding <= 8 ? padding : base.padding,
+    start: 1,
+    padding: 1,
     allowManualOverride: value[`${prefix}AllowManualOverride`] === true || value[`${prefix}AllowManualOverride`] === "true",
   };
   return candidate;

@@ -206,6 +206,7 @@ export interface Purchase {
   cgst: number;
   sgst: number;
   totalAmount: number;
+  items?: Array<{ id: number; productId?: number | null; description: string; hsn?: string | null; quantity: number | string; unit: string; unitPrice: number | string; gstRate: number | string; taxableValue: number | string; igst: number | string; cgst: number | string; sgst: number | string; totalAmount: number | string }>;
   workspace?: WorkspaceSummary | null;
 }
 
