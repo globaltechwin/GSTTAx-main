@@ -36,8 +36,9 @@ export async function GET(request: Request) {
       values = rows.map((row) => row.poNumber);
     }
     const savedMax = values.reduce((max, value) => Math.max(max, extractDocumentSequence(value, config, financialYear, type)), 0);
-    const sequence = await prisma.documentNumberSequence.findUnique({ where: { adminId_documentType_financialYear: { adminId, documentType: type, financialYear } }, select: { currentValue: true } });
-    const nextValue = Math.max(config.start - 1, savedMax, sequence?.currentValue ?? 0) + 1;
+    // Preview must use the same live-document rule as final allocation.
+    // Deleted highest-numbered documents do not reserve their number.
+    const nextValue = Math.max(config.start - 1, savedMax) + 1;
     return NextResponse.json({
       nextNumber: formatDocumentNumber(config, nextValue, date),
       automatic: config.enabled,

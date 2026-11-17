@@ -119,8 +119,11 @@ export async function allocateDocumentNumber(
 
   const highestSaved = savedValues.reduce((max, row) => Math.max(max, extractDocumentSequence(row.number, config, financialYear, type)), 0);
   const where = { adminId_documentType_financialYear: { adminId, documentType: type, financialYear } };
-  const current = await tx.documentNumberSequence.findUnique({ where, select: { currentValue: true } });
-  const baseline = Math.max(config.start - 1, highestSaved, current?.currentValue ?? 0);
+  // Option A: derive the next number from documents that still exist in this
+  // Admin workspace. A deleted highest-numbered document is therefore reusable.
+  // The sequence table is synchronized to the live maximum, not treated as
+  // an independent historical counter.
+  const baseline = Math.max(config.start - 1, highestSaved);
   await tx.documentNumberSequence.upsert({
     where,
     create: { adminId, documentType: type, financialYear, currentValue: baseline },
