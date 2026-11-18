@@ -39,14 +39,14 @@ function PrintDocument({ challan, company }: { challan: Challan; company?: Compa
     {(company?.state || company?.stateCode) && (
       <div className="text-[12px]">
         State: {company?.state || "—"}
-        {company?.stateCode ? ` (State Code: ${company.stateCode})` : ""}
+        {company?.stateCode ? ` Code: ${company.stateCode}` : ""}
       </div>
     )}
   </div>
 </div>
     <h2 className="mb-2 mt-2 text-center text-[18px] font-bold">Delivery Challan</h2>
     <section className="grid min-h-[112px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] border border-black px-2 py-2 text-[12px]">
-      <div className="pr-3"><b>To</b><div className="font-semibold">{challan.recipientName}</div><div className="whitespace-pre-line">{challan.recipientAddress || ""}</div><div>GSTN: {challan.recipientGstin || "—"}</div></div>
+      <div className="pr-3"><b>To</b><div className="font-semibold">{challan.recipientName}</div><div className="whitespace-pre-line">{challan.recipientAddress || ""}</div><div>State: {challan.recipientState || "—"}</div><div>GSTN: {challan.recipientGstin || "—"}</div></div>
       <div className="pl-2">{[["Delivery Challan No", challan.challanNumber], ["Delivery Challan Date", dateText(challan.challanDate)], ["PO No", challan.poNumber || "—"], ["PO Date", dateText(challan.poDate)], ["Currency", challan.currency || "INR"], ["State of Supply", challan.stateOfSupply || challan.recipientState || "—"]].map(([k,v]) => <div key={k} className="grid grid-cols-[max-content_1fr] gap-x-2"><span>{k} :</span><span>{v}</span></div>)}</div>
     </section>
     <table className="dc-items w-full border-collapse text-center text-[12px]"><colgroup><col style={{width:"11%"}}/><col style={{width:"11%"}}/><col style={{width:"55%"}}/><col style={{width:"11%"}}/><col style={{width:"12%"}}/></colgroup><thead><tr>{["Sl.No", "HSN", "Item Description", "Qty", "UOM"].map(x => <th key={x} className="border border-black px-2 py-1 font-bold">{x}</th>)}</tr></thead><tbody>{challan.items.map((item, i) => <tr key={i}><td className="border border-black px-2 py-2 align-top">{i+1}</td><td className="border border-black px-2 py-2 align-top">{item.hsn || ""}</td><td className="border border-black px-2 py-2 text-left align-top">{item.description}</td><td className="border border-black px-2 py-2 align-top">{item.quantity}</td><td className="border border-black px-2 py-2 align-top">{item.uom}</td></tr>)}</tbody></table>

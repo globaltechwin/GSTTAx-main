@@ -44,7 +44,7 @@ function SellerText({ invoice }: { invoice: InvoicePrintData }) {
     <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 3 }}>{c?.name || ""}</div>
     <div style={{ whiteSpace: "pre-line" }}>{c?.address || ""}</div>
     {c?.phone && <div>Phone: {c.phone}</div>}
-    {(c?.state || c?.stateCode) && <div>State: {c?.state || ""}{c?.stateCode ? `    Code: ${c.stateCode}` : ""} India</div>}
+    {(c?.state || c?.stateCode) && <div>State: {c?.state || "—"}{c?.stateCode ? `  Code: ${c.stateCode}` : ""}</div>}
     <div>GSTIN: {c?.gstNo || "—"}</div>
   </>;
 }
@@ -53,17 +53,17 @@ function BuyerText({ invoice }: { invoice: InvoicePrintData }) {
   return <>
     <div style={{ fontWeight: 700 }}>{invoice.billToName || buyer?.name || ""}</div>
     <div style={{ whiteSpace: "pre-line" }}>{invoice.billToAddress || buyer?.address || ""}</div>
-    <div>State: {invoice.billToState || buyer?.state || "—"} {invoice.billToStateCode || buyer?.stateCode || ""}</div>
+    <div>State: {invoice.billToState || buyer?.state || "—"}{(invoice.billToStateCode || buyer?.stateCode) ? `  Code: ${invoice.billToStateCode || buyer?.stateCode}` : ""}</div>
     <div>GSTN: {invoice.billToGstin || buyer?.gstNo || "—"}</div>
   </>;
 }
 function Field({ name, value }: { name: string; value: ReactNode }) {
   return <tr><td style={{ ...cell, width: "48%", fontWeight: 700 }}>{name}</td><td style={cell}>{value || "—"}</td></tr>;
 }
-function Totals({ invoice, subtotal, discount, cgst, sgst, igst, total, proforma }: {
-  invoice: InvoicePrintData; subtotal: number; discount: number; cgst: number; sgst: number; igst: number; total: number; proforma: boolean;
+function Totals({ invoice, subtotal, discount, cgst, sgst, igst, total, roundOff, proforma }: {
+  invoice: InvoicePrintData; subtotal: number; discount: number; cgst: number; sgst: number; igst: number; total: number; roundOff: number; proforma: boolean;
 }) {
-  const rows: [string, number, boolean?][] = [["Sub Total", subtotal], [proforma ? "Disc Amount" : "Discount Amount", discount]];
+  const rows: [string, number, boolean?][] = [["Sub Total", subtotal], [proforma ? "Disc Amount" : "Discount Amount", discount], ["Rounded Off", roundOff]];
   if (proforma && igst > 0) rows.push(["IGST Amount", igst]);
   else {
     if (cgst > 0) rows.push(["CGST Amount", cgst]);
@@ -94,7 +94,8 @@ export function YoInvoiceTemplate({ invoice }: { invoice: InvoicePrintData }) {
     const s = type === "CGST_SGST" ? base * sRate / 100 : 0;
     const i = type === "IGST" ? base * iRate / 100 : 0;
     cgst += c; sgst += s; igst += i;
-    return { base, type, tax: c + s + i, rate: cRate + sRate + iRate, igst: i };
+    const effectiveRate = type === "IGST" ? iRate : type === "CGST_SGST" ? cRate + sRate : 0;
+    return { base, type, tax: c + s + i, rate: effectiveRate, igst: i };
   });
   const tax = cgst + sgst + igst;
   const exactTotal = subtotal - discount + tax;
@@ -136,7 +137,7 @@ export function YoInvoiceTemplate({ invoice }: { invoice: InvoicePrintData }) {
     </tbody></table>
     <table style={{...table,marginTop:0}}><colgroup><col style={{width:"58%"}}/><col style={{width:"42%"}}/></colgroup><tbody><tr>
       <td style={cell}><b>Bank Detail</b><br/>BENEFICIARY NAME: {invoice.bankHolderName || company?.bankHolderName || company?.name || ""}<br/>BANK NAME: {invoice.bankName || company?.bankName || ""}<br/>A/C NO: {invoice.bankAccountNumber || company?.bankAccountNumber || ""}<br/>BRANCH: {invoice.bankBranchName || company?.bankBranchName || ""}<br/>IFSC CODE: {invoice.bankIfscCode || company?.bankIfscCode || ""}</td>
-      <td style={{...cell,verticalAlign:"top"}}><Totals invoice={invoice} subtotal={subtotal} discount={discount} cgst={cgst} sgst={sgst} igst={igst} total={total} proforma/></td>
+      <td style={{...cell,verticalAlign:"top"}}><Totals invoice={invoice} subtotal={subtotal} discount={discount} cgst={cgst} sgst={sgst} igst={igst} total={total} roundOff={roundOff} proforma/></td>
     </tr><tr><td colSpan={2} style={cell}><b>Amount Chargeable (In Words) :</b> {numberWords(total)}</td></tr><tr><td colSpan={2} style={{...cell,height:78,textAlign:"right",verticalAlign:"bottom",borderBottom:"1px solid #777"}}><b>For {company?.name || ""}</b><br/>{company?.signatureUrl ? <img src={company.signatureUrl} alt="Authorised signature" style={{display:"inline-block",width:`${Math.max(60,Math.min(320,Number(company.signatureWidth||160)))}px`,height:`${Math.max(25,Math.min(140,Number(company.signatureHeight||60)))}px`,objectFit:"contain",objectPosition:"right bottom"}}/> : <br/>}<br/>Authorised Signatory</td></tr></tbody></table>
   </>;
 

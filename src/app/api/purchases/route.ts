@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         take: pageSize,
         include: {
           items: true,
-          company: { select: { id: true, name: true, gstNo: true, panNo: true, phone: true, email: true, address: true, state: true, logoUrl: true, signatureUrl: true, signatureWidth: true, signatureHeight: true } },
+          company: { select: { id: true, name: true, gstNo: true, panNo: true, phone: true, email: true, address: true, state: true, stateCode: true, logoUrl: true, signatureUrl: true, signatureWidth: true, signatureHeight: true } },
           workspace: {
             select: { id: true, username: true, firstName: true, lastName: true },
           },

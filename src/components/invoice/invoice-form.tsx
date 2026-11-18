@@ -450,8 +450,8 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
   const discountedIgst = igstTotal * discountFactor;
   const taxTotal = discountedCgst + discountedSgst + discountedIgst;
   const grandTotal = subtotal - safeDiscount + taxTotal;
-  const roundedTotal = Math.round(grandTotal * 100) / 100;
-  const roundOff = 0;
+  const roundedTotal = Math.round(grandTotal);
+  const roundOff = roundedTotal - grandTotal;
 
   const buildInvoiceBody = () => {
     const totalRate = isCGST
@@ -1451,7 +1451,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                   ₹{roundedTotal > 0 ? formatIndianCurrency(roundedTotal) : "0.00"}
                 </span>
               </div>
-              {roundOff !== 0 && (
+              {Math.abs(roundOff) >= 0.005 && (
                 <div className="mt-1 flex items-center justify-between">
                   <span className="text-muted-foreground text-xs">Round Off:</span>
                   <span className="text-muted-foreground text-xs">

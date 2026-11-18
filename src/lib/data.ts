@@ -2,6 +2,8 @@ export interface Company {
   id: number;
   name: string;
   gstNo: string;
+  state?: string | null;
+  stateCode?: string | null;
   email: string;
   date: string;
   status?: string;
@@ -194,7 +196,7 @@ export const invoices: Invoice[] = [
 export interface Purchase {
   id: number;
   companyId?: number | null;
-  company?: { id: number; name: string; gstNo?: string | null; panNo?: string | null; phone?: string | null; email?: string | null; address?: string | null; state?: string | null; logoUrl?: string | null; signatureUrl?: string | null; signatureWidth?: number | null; signatureHeight?: number | null } | null;
+  company?: { id: number; name: string; stateCode?: string | null; state?: string | null; gstNo?: string | null; panNo?: string | null; phone?: string | null; email?: string | null; address?: string | null; logoUrl?: string | null; signatureUrl?: string | null; signatureWidth?: number | null; signatureHeight?: number | null } | null;
   gstNo: string;
   partyName: string;
   invoiceNo: string;

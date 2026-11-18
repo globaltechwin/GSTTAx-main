@@ -61,6 +61,8 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
     defaultValues: {
       name: company?.name ?? "",
       gstNo: company?.gstNo ?? "",
+      state: company?.state ?? "",
+      stateCode: company?.stateCode ?? "",
       email: company?.email ?? "",
       date: company?.date ?? new Date().toISOString().split("T")[0],
       status: (company?.status ?? "active") as "active" | "inactive" | "pending" | "suspended",
@@ -82,6 +84,8 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
     reset({
       name: company.name,
       gstNo: company.gstNo,
+      state: company.state ?? "",
+      stateCode: company.stateCode ?? "",
       email: company.email,
       date: company.date,
       status: company.status as CompanyFormData["status"],
@@ -142,6 +146,16 @@ export function CompanyForm({ company, onSubmit, onCancel, isLoading }: CompanyF
             <div className="space-y-1.5">
               <Label htmlFor="gstNo" className="flex items-center gap-2 text-xs font-semibold text-slate-700"><FileText className="size-3.5 text-blue-700" />GST No</Label>
               <Input id="gstNo" placeholder="Enter GST number" className={fieldClass} {...register("gstNo")} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="state" className="text-xs font-semibold text-slate-700">State</Label>
+              <Input id="state" placeholder="Enter state name" className={fieldClass} {...register("state")} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="stateCode" className="text-xs font-semibold text-slate-700">State Code</Label>
+              <Input id="stateCode" placeholder="e.g. 33" maxLength={5} className={fieldClass} {...register("stateCode")} />
             </div>
 
             <div className="space-y-1.5">

@@ -210,35 +210,16 @@ export function PurchasesClient() {
     const height = Math.max(25, Math.min(140, Number(company?.signatureHeight || 60)));
     const html = `<!doctype html><html><head><title>Purchased Invoices ${safe(purchase.invoiceNo)}</title><style>
       *{box-sizing:border-box}body{font:13px Arial,sans-serif;color:#222;margin:0;padding:28px}.top{display:flex;gap:18px;align-items:center;border-bottom:2px solid #333;padding-bottom:16px}.logo{max-width:125px;max-height:85px;object-fit:contain}.brand{flex:1}.brand h1{font-size:20px;margin:0 0 7px}.muted{color:#555;line-height:1.55}.title{text-align:center;margin:24px 0;font-size:20px;letter-spacing:1px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;border:1px solid #bbb;padding:14px}.label{color:#666;font-size:11px;text-transform:uppercase;margin-bottom:4px}.value{font-weight:600}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{border:1px solid #888;padding:10px;text-align:left}th{background:#f2f2f2}.num{text-align:right}.total{margin:16px 0 0 auto;width:300px}.total div{display:flex;justify-content:space-between;padding:5px 0}.grand{font-size:16px;font-weight:bold;border-top:2px solid #333;margin-top:6px;padding-top:9px!important}.sign{margin-top:65px;text-align:right;page-break-inside:avoid}.sign img{display:block;margin-left:auto;object-fit:contain;object-position:right bottom}.footer{margin-top:35px;border-top:1px solid #ccc;padding-top:8px;color:#777;font-size:10px}@media print{body{padding:12mm}}</style></head><body>
-      ${company ? `<header class="top">${company.logoUrl ? `<img class="logo" src="${safe(company.logoUrl)}" alt="Company logo">` : ""}<div class="brand"><h1>${safe(company.name)}</h1><div class="muted">${company.address ? `${safe(company.address)}<br>` : ""}${company.gstNo ? `GSTIN: ${safe(company.gstNo)}<br>` : ""}${company.panNo ? `PAN: ${safe(company.panNo)}<br>` : ""}${company.phone ? `Phone: ${safe(company.phone)} ` : ""}${company.email ? `Email: ${safe(company.email)}` : ""}</div></div></header>` : ""}
-      <h2 class="title">Purchased Invoices</h2><section class="grid"><div><div class="label">Vendor Name</div><div class="value">${safe(purchase.partyName)}</div><div class="muted">${purchase.gstNo ? `GSTIN: ${safe(purchase.gstNo)}` : ""}<br>${safe(purchase.state || "")}</div></div><div><div class="label">Invoice Details</div><div class="value">Invoice No: ${safe(purchase.invoiceNo)}</div><div class="muted">Date: ${safe(new Date(purchase.invoiceDate).toLocaleDateString("en-IN"))}</div></div></section>
+      ${company ? `<header class="top">${company.logoUrl ? `<img class="logo" src="${safe(company.logoUrl)}" alt="Company logo">` : ""}<div class="brand"><h1>${safe(company.name)}</h1><div class="muted">${company.address ? `${safe(company.address)}<br>` : ""}${company.state ? `State: ${safe(company.state)}${company.stateCode ? ` Code: ${safe(company.stateCode)}` : ""}<br>` : ""}${company.gstNo ? `GSTIN: ${safe(company.gstNo)}<br>` : ""}${company.panNo ? `PAN: ${safe(company.panNo)}<br>` : ""}${company.phone ? `Phone: ${safe(company.phone)} ` : ""}${company.email ? `Email: ${safe(company.email)}` : ""}</div></div></header>` : ""}
+      <h2 class="title">Purchased Invoices</h2><section class="grid"><div><div class="label">Vendor Name</div><div class="value">${safe(purchase.partyName)}</div><div class="muted">${purchase.gstNo ? `GSTIN: ${safe(purchase.gstNo)}` : ""}<br>${purchase.state ? `State: ${safe(purchase.state)}` : ""}</div></div><div><div class="label">Invoice Details</div><div class="value">Invoice No: ${safe(purchase.invoiceNo)}</div><div class="muted">Date: ${safe(new Date(purchase.invoiceDate).toLocaleDateString("en-IN"))}</div></div></section>
       <table><thead><tr><th>Product / Description</th><th>HSN</th><th class="num">Qty</th><th>Unit</th><th class="num">Rate</th><th class="num">GST %</th><th class="num">Taxable Value (₹)</th><th class="num">IGST (₹)</th><th class="num">CGST (₹)</th><th class="num">SGST (₹)</th><th class="num">Total (₹)</th></tr></thead><tbody>${(purchase.items?.length ? purchase.items : [{description:"Purchase of goods / services",hsn:"",quantity:1,unit:"—",unitPrice:purchase.taxableValue,gstRate:purchase.rate,taxableValue:purchase.taxableValue,igst:purchase.igst,cgst:purchase.cgst,sgst:purchase.sgst,totalAmount:purchase.totalAmount}]).map(item=>`<tr><td>${safe(item.description)}</td><td>${safe(item.hsn||"")}</td><td class="num">${safe(item.quantity)}</td><td>${safe(item.unit)}</td><td class="num">${money(item.unitPrice)}</td><td class="num">${money(item.gstRate)}%</td><td class="num">${money(item.taxableValue)}</td><td class="num">${money(item.igst)}</td><td class="num">${money(item.cgst)}</td><td class="num">${money(item.sgst)}</td><td class="num">${money(item.totalAmount)}</td></tr>`).join("")}</tbody></table>
       <div class="total"><div><span>Taxable Value</span><b>₹ ${money(purchase.taxableValue)}</b></div><div><span>IGST</span><b>₹ ${money(purchase.igst)}</b></div><div><span>CGST</span><b>₹ ${money(purchase.cgst)}</b></div><div><span>SGST</span><b>₹ ${money(purchase.sgst)}</b></div><div class="grand"><span>Total Invoice Value</span><span>₹ ${money(purchase.totalAmount)}</span></div></div>
       <div class="sign">${company?.signatureUrl ? `<img src="${safe(company.signatureUrl)}" style="width:${width}px;height:${height}px" alt="Authorised signatory signature">` : ""}<b>Authorised Signatory</b></div><div class="footer">This document is generated from the Purchased Invoices records.</div>
       </body></html>`;
-    const frame = document.createElement("iframe");
-    frame.style.position = "fixed";
-    frame.style.right = "0";
-    frame.style.bottom = "0";
-    frame.style.width = "0";
-    frame.style.height = "0";
-    frame.style.border = "0";
-    frame.setAttribute("aria-hidden", "true");
-    document.body.appendChild(frame);
-    const printDocument = frame.contentDocument;
-    if (!printDocument) {
-      frame.remove();
-      window.alert("Unable to prepare the Purchased Invoice print preview.");
-      return;
-    }
-    printDocument.open();
-    printDocument.write(html);
-    printDocument.close();
-    frame.onload = () => {
-      frame.contentWindow?.focus();
-      frame.contentWindow?.print();
-      window.setTimeout(() => frame.remove(), 1000);
-    };
+    const win = window.open("", "_blank");
+    if (!win) { window.alert("Please allow pop-ups to print the Purchased Invoices."); return; }
+    win.document.open(); win.document.write(html); win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
   };
 
   const totalPages = Math.ceil(total / pageSize);

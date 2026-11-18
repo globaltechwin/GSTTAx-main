@@ -198,30 +198,6 @@ export function ToCompanyClient() {
 
   const columns: ColumnDef<ToCompany>[] = [
     {
-      id: "select",
-      header: ({ table }) => (
-        <input
-          type="checkbox"
-          checked={table.getIsAllPageRowsSelected()}
-          onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
-          className="border-border/60 bg-card accent-primary size-4 cursor-pointer rounded"
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <input
-          type="checkbox"
-          checked={row.getIsSelected()}
-          onChange={(e) => row.toggleSelected(e.target.checked)}
-          className="border-border/60 bg-card accent-primary size-4 cursor-pointer rounded"
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-      size: 40,
-    },
-    {
       id: "srNo",
       header: "#",
       cell: (info) => (

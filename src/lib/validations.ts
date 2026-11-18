@@ -3,6 +3,8 @@ import { z } from "zod";
 export const companySchema = z.object({
   name: z.string().min(1, "Company name is required").max(100, "Company name is too long"),
   gstNo: z.string().optional(),
+  state: z.string().max(50).optional(),
+  stateCode: z.string().max(5).optional(),
   email: z
     .string()
     .optional()

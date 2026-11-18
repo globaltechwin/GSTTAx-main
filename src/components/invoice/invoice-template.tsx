@@ -294,7 +294,8 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
     const factor = subtotal > 0 ? (subtotal - discount) / subtotal : 0;
     const adjustedTax = taxTotal * factor;
     const grandTotal = subtotal - discount + adjustedTax;
-    const roundedTotal = Math.round(grandTotal * 100) / 100;
+    const roundedTotal = Math.round(grandTotal);
+    const roundOff = roundedTotal - grandTotal;
 
     return {
       subtotal,
@@ -304,6 +305,7 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
       igstTotal,
       taxTotal: adjustedTax,
       discount,
+      roundOff,
       grandTotal: roundedTotal,
     };
   }, [invoice, taxType]);
@@ -1954,6 +1956,9 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                 <tbody>
                   {totals.discount > 0 && (
                     <tr><td style={{ padding: "3px 8px", fontSize: "10px" }}>Discount Amount</td><td style={{ padding: "3px 8px", textAlign: "right", fontSize: "10px" }}>: ₹{formatIndianCurrency(totals.discount)}</td></tr>
+                  )}
+                  {Math.abs(totals.roundOff) >= 0.005 && (
+                    <tr><td style={{ padding: "3px 8px", fontSize: "10px" }}>Rounded Off</td><td style={{ padding: "3px 8px", textAlign: "right", fontSize: "10px" }}>: ₹{formatIndianCurrency(totals.roundOff)}</td></tr>
                   )}
                   {!isNoGST && (
                     <tr>
