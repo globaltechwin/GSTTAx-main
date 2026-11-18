@@ -347,7 +347,7 @@ export function InvoiceClient({ documentType = "TAX_INVOICE" }: { documentType?:
               <MoreHorizontal className="size-4" />
             </button>
             {openMenuId === invoice.id && (
-              <div className="border-border/60 bg-popover animate-fade-in absolute right-0 z-20 mt-1 w-44 rounded-xl border p-1.5 shadow-xl">
+              <div className="border-border/60 bg-popover animate-fade-in fixed right-6 z-20 mt-1 w-44 rounded-xl border p-1.5 shadow-xl">
                 <Link
                   href={`${portalBase}/${isProforma ? "proforma-invoices" : "invoices"}/${invoice.id}`}
                   onClick={(e) => e.stopPropagation()}

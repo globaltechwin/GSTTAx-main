@@ -55,6 +55,7 @@ export async function authenticate(username: string, password: string): Promise<
       firstName: user.firstName,
       lastName: user.lastName,
       username: user.username,
+      profileImage: user.profileImage ?? null,
       role: user.role.toUpperCase(),
       status: user.status,
       sidebarAccess,

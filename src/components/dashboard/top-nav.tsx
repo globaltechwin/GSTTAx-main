@@ -72,8 +72,10 @@ export function TopNav() {
               }}
               className="hover:bg-muted/50 flex items-center gap-2.5 rounded-xl px-2 py-1.5 transition-colors"
             >
-              <div className="from-primary to-primary/80 text-primary-foreground shadow-primary/20 flex size-8 items-center justify-center rounded-xl bg-gradient-to-br text-xs font-bold shadow-sm">
-                {initials}
+              <div className="from-primary to-primary/80 text-primary-foreground shadow-primary/20 flex size-8 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-xs font-bold shadow-sm">
+                {user?.profileImage ? (
+                  <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
+                ) : initials}
               </div>
               <div className="hidden text-left sm:block">
                 <p className="text-foreground text-sm leading-none font-semibold">{displayName}</p>
@@ -90,8 +92,10 @@ export function TopNav() {
             {menuOpen && (
               <div className="border-border/60 bg-popover animate-fade-in absolute right-0 z-50 mt-2 w-56 rounded-xl border p-1.5 shadow-xl">
                 <div className="border-border/60 flex items-center gap-3 border-b px-3 py-3">
-                  <div className="from-primary to-primary/80 text-primary-foreground flex size-9 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold">
-                    {initials}
+                  <div className="from-primary to-primary/80 text-primary-foreground flex size-9 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br text-sm font-bold">
+                    {user?.profileImage ? (
+                      <img src={user.profileImage} alt="" className="h-full w-full object-cover" />
+                    ) : initials}
                   </div>
                   <div>
                     <p className="text-foreground text-sm font-semibold">{displayName}</p>

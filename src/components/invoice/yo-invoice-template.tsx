@@ -31,7 +31,7 @@ type Item = InvoicePrintData["items"][number];
 const cell: CSSProperties = { border: "1px solid #777", padding: "3px 4px", verticalAlign: "top", overflowWrap: "anywhere" };
 const head: CSSProperties = { ...cell, textAlign: "center", fontWeight: 700, verticalAlign: "middle" };
 const label: CSSProperties = { fontWeight: 700 };
-const right: CSSProperties = { textAlign: "right", whiteSpace: "nowrap" };
+const right: CSSProperties = { textAlign: "right", whiteSpace: "normal", overflowWrap: "anywhere", wordBreak: "normal", fontVariantNumeric: "tabular-nums" };
 const table: CSSProperties = { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" };
 
 function CompanyLogo({ invoice, maxHeight = 76 }: { invoice: InvoicePrintData; maxHeight?: number }) {
@@ -155,7 +155,7 @@ export function YoInvoiceTemplate({ invoice }: { invoice: InvoicePrintData }) {
       </tr>
       <tr><td colSpan={3} style={cell}><b>Buyer</b><br/><BuyerText invoice={invoice}/></td></tr>
     </tbody></table>
-    <table style={{...table,marginTop:0}}><colgroup>{["5%","34%","10%","8%","6%","8%","9%","7%","6%","7%"].map((w,i)=><col key={i} style={{width:w}}/>)}</colgroup><thead><tr>{["S.No","Description of Goods","HSN/SAC","Quantity","UOM","Rate","Amount","Tax (%)","IGST / GST","Total"].map(h=><th key={h} style={head}>{h}</th>)}</tr></thead><tbody>
+    <table style={{...table,marginTop:0}}><colgroup>{["4%","28%","9%","7%","5%","8%","11%","7%","10%","11%"].map((w,i)=><col key={i} style={{width:w}}/>)}</colgroup><thead><tr>{["S.No","Description of Goods","HSN/SAC","Quantity","UOM","Rate","Amount","Tax (%)","IGST / GST","Total"].map(h=><th key={h} style={head}>{h}</th>)}</tr></thead><tbody>
       {invoice.items.map((item,index)=>{const row=taxRows[index];const amount=Number(item.amount||0);return <tr key={item.id||index} style={{height:38}}><td style={{...cell,textAlign:"center"}}>{index+1}</td><td style={cell}>{item.description||""}</td><td style={{...cell,textAlign:"center"}}>{item.hsn||item.sac||""}</td><td style={{...cell,textAlign:"center"}}>{item.quantity}</td><td style={{...cell,textAlign:"center"}}>{item.per||item.unit||"Nos"}</td><td style={{...cell,...right}}>{money(Number(item.price||0))}</td><td style={{...cell,...right}}>{money(amount)}</td><td style={{...cell,textAlign:"center"}}>{row.rate}%</td><td style={{...cell,...right}}>{money(row.tax)}</td><td style={{...cell,...right}}>{money(amount+row.tax)}</td></tr>})}
       <tr><td colSpan={3} style={{...cell,textAlign:"right",fontWeight:700}}>Total</td><td style={{...cell,textAlign:"center",fontWeight:700}}>{totalQty}</td><td style={cell}/><td style={cell}/><td style={{...cell,...right,fontWeight:700}}>{money(subtotal)}</td><td style={cell}/><td style={{...cell,...right,fontWeight:700}}>{money(tax)}</td><td style={{...cell,...right,fontWeight:700}}>{money(subtotal+tax)}</td></tr>
     </tbody></table>

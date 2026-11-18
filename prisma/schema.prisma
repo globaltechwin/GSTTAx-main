@@ -132,6 +132,9 @@ model Invoice {
   shipToStateCode    String?       @map("ship_to_state_code") @db.VarChar(5)
   termsAndConditions String?       @map("terms_and_conditions") @db.Text
   logoUrl            String?       @map("logo_url") @db.LongText
+  signatureUrl       String?       @map("signature_url") @db.LongText
+  signatureWidth     Int?          @map("signature_width")
+  signatureHeight    Int?          @map("signature_height")
   phone              String?       @map("phone") @db.VarChar(100)
   adminId            Int?          @map("admin_id")
   items              InvoiceItem[]
@@ -228,6 +231,7 @@ model User {
   password              String           @db.VarChar(255)
   email                 String?          @db.VarChar(100)
   phone                 String?          @db.VarChar(20)
+  profileImage          String?          @map("profile_image") @db.LongText
   role                  String           @default("user") @db.VarChar(20)
   status                String           @default("active") @db.VarChar(20)
   sidebarAccess         String?          @map("sidebar_access") @db.Text
@@ -310,6 +314,9 @@ model PurchaseOrder {
   shippingAddress String?  @map("shipping_address") @db.Text
   senderDetails   String?  @map("sender_details") @db.Text
   companyId       Int?     @map("company_id")
+  signatureUrl    String?  @map("signature_url") @db.LongText
+  signatureWidth  Int?     @map("signature_width")
+  signatureHeight Int?     @map("signature_height")
   subtotal        Decimal  @default(0) @db.Decimal(14,2)
   discountAmount  Decimal  @default(0) @map("discount_amount") @db.Decimal(14,2)
   igstAmount      Decimal  @default(0) @map("igst_amount") @db.Decimal(14,2)
@@ -517,6 +524,9 @@ model DeliveryChallan {
   companyAddress   String?              @map("company_address") @db.Text
   companyGstin     String?              @map("company_gstin") @db.VarChar(50)
   companyPhone     String?              @map("company_phone") @db.VarChar(30)
+  signatureUrl     String?              @map("signature_url") @db.LongText
+  signatureWidth   Int?                 @map("signature_width")
+  signatureHeight  Int?                 @map("signature_height")
   recipientId      Int?                 @map("recipient_id")
   recipientName    String               @map("recipient_name") @db.VarChar(200)
   recipientAddress String?              @map("recipient_address") @db.Text

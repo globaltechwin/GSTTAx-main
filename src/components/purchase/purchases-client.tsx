@@ -216,10 +216,29 @@ export function PurchasesClient() {
       <div class="total"><div><span>Taxable Value</span><b>₹ ${money(purchase.taxableValue)}</b></div><div><span>IGST</span><b>₹ ${money(purchase.igst)}</b></div><div><span>CGST</span><b>₹ ${money(purchase.cgst)}</b></div><div><span>SGST</span><b>₹ ${money(purchase.sgst)}</b></div><div class="grand"><span>Total Invoice Value</span><span>₹ ${money(purchase.totalAmount)}</span></div></div>
       <div class="sign">${company?.signatureUrl ? `<img src="${safe(company.signatureUrl)}" style="width:${width}px;height:${height}px" alt="Authorised signatory signature">` : ""}<b>Authorised Signatory</b></div><div class="footer">This document is generated from the Purchased Invoices records.</div>
       </body></html>`;
-    const win = window.open("", "_blank");
-    if (!win) { window.alert("Please allow pop-ups to print the Purchased Invoices."); return; }
-    win.document.open(); win.document.write(html); win.document.close();
-    win.onload = () => { win.focus(); win.print(); };
+    const frame = document.createElement("iframe");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "0";
+    frame.style.height = "0";
+    frame.style.border = "0";
+    frame.setAttribute("aria-hidden", "true");
+    document.body.appendChild(frame);
+    const printDocument = frame.contentDocument;
+    if (!printDocument) {
+      frame.remove();
+      window.alert("Unable to prepare the Purchased Invoice print preview.");
+      return;
+    }
+    printDocument.open();
+    printDocument.write(html);
+    printDocument.close();
+    frame.onload = () => {
+      frame.contentWindow?.focus();
+      frame.contentWindow?.print();
+      window.setTimeout(() => frame.remove(), 1000);
+    };
   };
 
   const totalPages = Math.ceil(total / pageSize);

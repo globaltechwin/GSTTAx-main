@@ -10,6 +10,7 @@ interface SessionUser {
   firstName: string;
   lastName: string;
   username: string;
+  profileImage: string | null;
   role: string;
   sidebarAccess: string[];
   actionPermissions: Record<string, Record<string, boolean>>;

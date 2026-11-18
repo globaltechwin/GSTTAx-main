@@ -408,7 +408,7 @@ export function CompaniesClient() {
               <MoreHorizontal className="size-4" />
             </button>
             {openMenuId === company.id && (
-              <div className="border-border/60 bg-popover animate-fade-in absolute right-0 z-20 mt-1 w-48 rounded-xl border p-1.5 shadow-xl">
+              <div className="border-border/60 bg-popover animate-fade-in fixed right-6 z-20 mt-1 w-48 rounded-xl border p-1.5 shadow-xl">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

@@ -17,6 +17,7 @@ export interface SessionUser {
   firstName: string;
   lastName: string;
   username: string;
+  profileImage: string | null;
   role: string;
   status: string;
   sidebarAccess: string[];
@@ -80,6 +81,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     firstName: session.user.firstName,
     lastName: session.user.lastName,
     username: session.user.username,
+    profileImage: session.user.profileImage ?? null,
     role: session.user.role.toUpperCase(),
     status: session.user.status,
     sidebarAccess:

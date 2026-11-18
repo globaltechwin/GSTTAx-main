@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     if (!vendor) return NextResponse.json({ error: "Select a valid vendor from your workspace" }, { status: 400 });
     const companyId = Number(body.companyId);
     const company = Number.isInteger(companyId) && companyId > 0
-      ? await prisma.company.findFirst({ where: { id: companyId, ...workspaceWhere(access.user) }, select: { id: true, state: true } })
+      ? await prisma.company.findFirst({ where: { id: companyId, ...workspaceWhere(access.user) }, select: { id: true, state: true, signatureUrl: true, signatureWidth: true, signatureHeight: true } })
       : null;
     if (!company) return NextResponse.json({ error: "Select a valid company from your workspace" }, { status: 400 });
     const rawItems = Array.isArray(body.items) ? body.items : [];
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
           orderDate, quoteNo: body.quoteNo || null,
           quoteDate: body.quoteDate ? new Date(body.quoteDate) : null, currency: body.currency || vendor.currency,
           shippingAddress: body.shippingAddress || null, senderDetails: body.senderDetails || null, companyId: company.id,
+          signatureUrl: company.signatureUrl ?? null, signatureWidth: company.signatureWidth ?? null, signatureHeight: company.signatureHeight ?? null,
           subtotal: totals.subtotal, discountAmount: totals.discountAmount, igstAmount: totals.igstAmount,
           cgstAmount: totals.cgstAmount, sgstAmount: totals.sgstAmount, cessAmount: totals.cessAmount,
           grandTotal: totals.grandTotal, items: { create: totals.items },

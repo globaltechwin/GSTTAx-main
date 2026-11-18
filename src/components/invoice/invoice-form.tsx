@@ -1224,11 +1224,12 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
 
         {/* Items Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[1400px] table-fixed text-sm">
             <thead>
               <tr className="border-border/60 bg-muted/30 border-b">
                 <th className="text-muted-foreground px-2 py-2 text-center text-[10px] font-semibold tracking-wider uppercase">Sr.<br/>No.</th>
                 <th className="text-muted-foreground px-2 py-2 text-left text-[10px] font-semibold tracking-wider uppercase">Name of product</th>
+                <th className="text-muted-foreground px-2 py-2 text-center text-[10px] font-semibold tracking-wider uppercase">HSN / SAC</th>
                 <th className="text-muted-foreground px-2 py-2 text-center text-[10px] font-semibold tracking-wider uppercase">QTY</th>
                 <th className="text-muted-foreground px-2 py-2 text-center text-[10px] font-semibold tracking-wider uppercase">Unit</th>
                 <th className="text-muted-foreground px-2 py-2 text-right text-[10px] font-semibold tracking-wider uppercase">Rate</th>
@@ -1274,6 +1275,15 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                     <td className="px-2 py-2 text-center text-sm font-medium">{index + 1}</td>
                     <td className="px-2 py-2">
                       <ProductAutocomplete value={item.description} onChange={(value) => updateItem(item.id, "description", value)} onSelect={(product: WorkspaceProduct) => applyProductToInvoiceItem(item.id, product)} placeholder="Search Product ID, name or SKU" className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"/>
+                    </td>
+                    <td className="px-2 py-2">
+                      <Input
+                        value={item.hsn || item.sac || ""}
+                        onChange={(e) => updateItem(item.id, "hsn", e.target.value)}
+                        placeholder="HSN/SAC"
+                        className="h-8 w-24 text-center text-xs"
+                        maxLength={16}
+                      />
                     </td>
                     <td className="px-2 py-2">
                       <Input type="number" value={item.quantity || ""} onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)} placeholder="0" className="h-8 w-16 text-center text-sm" min={0} />

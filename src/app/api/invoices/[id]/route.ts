@@ -87,7 +87,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
     if (access.user.role === "USER" && !canPerform(access.user.actionPermissions, invoice.documentType === "PROFORMA" ? "proforma-invoices" : "invoices", "view")) return NextResponse.json({ error: "View permission is not granted for this document type" }, { status: 403 });
 
-    return NextResponse.json(invoice);
+    return NextResponse.json({
+      ...invoice,
+      company: invoice.company
+        ? {
+            ...invoice.company,
+            signatureUrl: invoice.signatureUrl,
+            signatureWidth: invoice.signatureWidth,
+            signatureHeight: invoice.signatureHeight,
+          }
+        : null,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch invoice";
     return NextResponse.json({ error: message }, { status: 500 });

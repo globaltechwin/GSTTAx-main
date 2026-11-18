@@ -213,6 +213,12 @@ export async function POST(request: NextRequest) {
     if (refsAreOwned.some((count) => count !== 1)) {
       return NextResponse.json({ error: "Selected company is unavailable" }, { status: 400 });
     }
+    const companySignature = companyRef
+      ? await prisma.company.findFirst({
+          where: { id: companyRef, adminId: workspaceId },
+          select: { signatureUrl: true, signatureWidth: true, signatureHeight: true },
+        })
+      : null;
 
     const rate = (value: unknown, key: string) => {
       const parsed = Number(value ?? 0);
@@ -303,6 +309,9 @@ export async function POST(request: NextRequest) {
             shipToStateCode: shipToStateCode || null,
             termsAndConditions: termsAndConditions || null,
             logoUrl: logoUrl || null,
+            signatureUrl: companySignature?.signatureUrl ?? null,
+            signatureWidth: companySignature?.signatureWidth ?? null,
+            signatureHeight: companySignature?.signatureHeight ?? null,
             phone: phone || null,
             items: { create: financials.items },
           },
