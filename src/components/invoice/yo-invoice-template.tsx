@@ -87,9 +87,12 @@ export function YoInvoiceTemplate({ invoice }: { invoice: InvoicePrintData }) {
   const taxRows = invoice.items.map((item) => {
     const base = Number(item.amount || 0) * discountFactor;
     const type = item.gstType || invoice.taxType;
-    const cRate = Number(item.cgstRate ?? invoice.cgstRate ?? 0);
-    const sRate = Number(item.sgstRate ?? invoice.sgstRate ?? 0);
-    const iRate = Number(item.igstRate ?? invoice.igstRate ?? 0);
+    const itemCgstRate = Number(item.cgstRate || 0);
+    const itemSgstRate = Number(item.sgstRate || 0);
+    const itemIgstRate = Number(item.igstRate || 0);
+    const cRate = itemCgstRate > 0 ? itemCgstRate : Number(invoice.cgstRate || 0);
+    const sRate = itemSgstRate > 0 ? itemSgstRate : Number(invoice.sgstRate || 0);
+    const iRate = itemIgstRate > 0 ? itemIgstRate : Number(invoice.igstRate || 0);
     const c = type === "CGST_SGST" ? base * cRate / 100 : 0;
     const s = type === "CGST_SGST" ? base * sRate / 100 : 0;
     const i = type === "IGST" ? base * iRate / 100 : 0;
@@ -99,8 +102,8 @@ export function YoInvoiceTemplate({ invoice }: { invoice: InvoicePrintData }) {
   });
   const tax = cgst + sgst + igst;
   const exactTotal = subtotal - discount + tax;
-  const total = Math.round(exactTotal);
-  const roundOff = total - exactTotal;
+  const roundOff = Number(invoice.roundOff || 0);
+  const total = Math.round((exactTotal + roundOff) * 100) / 100;
   const due = total;
   const totalQty = invoice.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const hsnMap = new Map<string, { hsn: string; rate: number; taxable: number; tax: number; type: string }>();
@@ -143,18 +146,31 @@ export function YoInvoiceTemplate({ invoice }: { invoice: InvoicePrintData }) {
 
   const taxDocument = <>
     <div style={{ textAlign:"right",fontWeight:700,padding:"0 4px 3px" }}>Original - Buyer&apos;s copy</div>
-    <table style={table}><colgroup><col style={{width:"58%"}}/><col style={{width:"21%"}}/><col style={{width:"21%"}}/></colgroup><tbody>
-      <tr><td colSpan={3} style={head}>Tax Invoice</td></tr>
+    <table style={table}><colgroup><col style={{width:"58%"}}/><col style={{width:"42%"}}/></colgroup><tbody>
+      <tr><td colSpan={2} style={head}>Tax Invoice</td></tr>
       <tr>
-        <td style={cell}><div style={{display:"flex",gap:8,alignItems:"flex-start"}}>{logoSrc && <div style={{width:"24%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><CompanyLogo invoice={invoice} maxHeight={86}/></div>}<div style={{flex:1,minWidth:0}}><SellerText invoice={invoice}/></div></div></td>
-        <td style={{...cell,padding:0}}><table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}><tbody>
-          <Field name="Invoice No." value={invoice.invoiceNo || invoice.orderId}/><Field name="Supplier Ref." value="—"/><Field name="Buyer’s Order No." value={invoice.poNumber || "—"}/><Field name="Delivery Challan No." value={invoice.challanNo || "—"}/><Field name="Delivered Through" value={invoice.transportMode || "—"}/>
-        </tbody></table></td>
-        <td style={{...cell,padding:0}}><table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}><tbody>
-          <Field name="Dated" value={date(invoice.date)}/><Field name="Terms of Payment" value="Immediate Payment"/><Field name="Dated" value={date(invoice.poDate)}/><Field name="Dated" value={date(invoice.dateOfSupply)}/><Field name="Destination" value={invoice.placeOfSupply || "—"}/>
-        </tbody></table></td>
+        <td style={{...cell,verticalAlign:"top"}}><div style={{display:"flex",gap:8,alignItems:"flex-start"}}>{logoSrc && <div style={{width:"24%",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><CompanyLogo invoice={invoice} maxHeight={86}/></div>}<div style={{flex:1,minWidth:0}}><SellerText invoice={invoice}/></div></div></td>
+        <td style={{...cell,padding:0,verticalAlign:"top"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+            <colgroup><col style={{width:"29%"}}/><col style={{width:"21%"}}/><col style={{width:"29%"}}/><col style={{width:"21%"}}/></colgroup>
+            <tbody>
+              {[
+                ["Invoice No.", invoice.invoiceNo || invoice.orderId, "Dated", date(invoice.date)],
+                ["Supplier Ref.", "—", "Terms of Payment", "Immediate Payment"],
+                ["Buyer’s Order No.", invoice.poNumber || "—", "Dated", date(invoice.poDate)],
+                ["Delivery Challan No.", invoice.challanNo || "—", "Dated", date(invoice.dateOfSupply)],
+                ["Delivered Through", invoice.transportMode || "—", "Destination", invoice.placeOfSupply || "—"],
+              ].map((row, index) => <tr key={index}>
+                <td style={{...cell,fontWeight:700,fontSize:9,overflowWrap:"anywhere"}}>{row[0]}</td>
+                <td style={{...cell,fontSize:9,overflowWrap:"anywhere"}}>{row[1] || "—"}</td>
+                <td style={{...cell,fontWeight:700,fontSize:9,overflowWrap:"anywhere"}}>{row[2]}</td>
+                <td style={{...cell,fontSize:9,overflowWrap:"anywhere"}}>{row[3] || "—"}</td>
+              </tr>)}
+            </tbody>
+          </table>
+        </td>
       </tr>
-      <tr><td colSpan={3} style={cell}><b>Buyer</b><br/><BuyerText invoice={invoice}/></td></tr>
+      <tr><td colSpan={2} style={cell}><b>Buyer</b><br/><BuyerText invoice={invoice}/></td></tr>
     </tbody></table>
     <table style={{...table,marginTop:0}}><colgroup>{["4%","28%","9%","7%","5%","8%","11%","7%","10%","11%"].map((w,i)=><col key={i} style={{width:w}}/>)}</colgroup><thead><tr>{["S.No","Description of Goods","HSN/SAC","Quantity","UOM","Rate","Amount","Tax (%)","IGST / GST","Total"].map(h=><th key={h} style={head}>{h}</th>)}</tr></thead><tbody>
       {invoice.items.map((item,index)=>{const row=taxRows[index];const amount=Number(item.amount||0);return <tr key={item.id||index} style={{height:38}}><td style={{...cell,textAlign:"center"}}>{index+1}</td><td style={cell}>{item.description||""}</td><td style={{...cell,textAlign:"center"}}>{item.hsn||item.sac||""}</td><td style={{...cell,textAlign:"center"}}>{item.quantity}</td><td style={{...cell,textAlign:"center"}}>{item.per||item.unit||"Nos"}</td><td style={{...cell,...right}}>{money(Number(item.price||0))}</td><td style={{...cell,...right}}>{money(amount)}</td><td style={{...cell,textAlign:"center"}}>{row.rate}%</td><td style={{...cell,...right}}>{money(row.tax)}</td><td style={{...cell,...right}}>{money(amount+row.tax)}</td></tr>})}
@@ -162,7 +178,7 @@ export function YoInvoiceTemplate({ invoice }: { invoice: InvoicePrintData }) {
     </tbody></table>
     <table style={{...table,marginTop:0}}><colgroup><col style={{width:"66%"}}/><col style={{width:"34%"}}/></colgroup><tbody>
       <tr><td style={cell}><b>Amount Chargeable (In Words) :</b> {numberWords(total)}</td><td style={cell}><div style={{display:"flex",justifyContent:"space-between"}}><b>Rounded Off:</b><span>₹. {money(roundOff)}</span></div><div style={{display:"flex",justifyContent:"space-between"}}><b>Total Amount:</b><span>₹. {money(total)}</span></div><div style={{display:"flex",justifyContent:"space-between"}}><b>Due Amount:</b><span>₹. {money(due)}</span></div><div style={{textAlign:"right",fontWeight:700}}>Inclusive of All Taxes.</div></td></tr>
-      <tr><td colSpan={2} style={cell}><b>HSN/SAC Tax Summary</b><table style={{...table,marginTop:3}}><colgroup><col style={{width:"25%"}}/><col style={{width:"25%"}}/><col style={{width:"25%"}}/><col style={{width:"25%"}}/></colgroup><thead><tr><th style={head}>HSN/SAC</th><th style={head}>Taxable Value</th><th style={head}>GST Rate</th><th style={head}>Tax Amount</th></tr></thead><tbody>{hsnRows.map((r,i)=><tr key={`${r.hsn}-${r.rate}-${i}`}><td style={cell}>{r.hsn}</td><td style={{...cell,...right}}>{money(r.taxable)}</td><td style={{...cell,textAlign:"center"}}>{r.rate}%</td><td style={{...cell,...right}}>{money(r.tax)}</td></tr>)}<tr><td style={{...cell,fontWeight:700}}>Total</td><td style={{...cell,...right,fontWeight:700}}>{money(hsnRows.reduce((s,r)=>s+r.taxable,0))}</td><td style={cell}/><td style={{...cell,...right,fontWeight:700}}>{money(tax)}</td></tr></tbody></table><div style={{marginTop:4}}><b>Tax Amount (In Words) :</b> {numberWords(tax)}</div></td></tr>
+      <tr><td colSpan={2} style={cell}><b>HSN/SAC Tax Summary</b><table style={{...table,marginTop:3}}><colgroup><col style={{width:"25%"}}/><col style={{width:"25%"}}/><col style={{width:"25%"}}/><col style={{width:"25%"}}/></colgroup><thead><tr><th style={head}>HSN/SAC</th><th style={head}>Taxable Value</th><th style={head}>Tax Type / Rate</th><th style={head}>Tax Amount</th></tr></thead><tbody>{hsnRows.map((r,i)=><tr key={`${r.hsn}-${r.rate}-${i}`}><td style={cell}>{r.hsn}</td><td style={{...cell,...right}}>{money(r.taxable)}</td><td style={{...cell,textAlign:"center"}}>{r.type === "IGST" ? "IGST" : r.type === "CGST_SGST" ? "GST (CGST + SGST)" : "No GST"} ({r.rate}%)</td><td style={{...cell,...right}}>{money(r.tax)}</td></tr>)}<tr><td style={{...cell,fontWeight:700}}>Total</td><td style={{...cell,...right,fontWeight:700}}>{money(hsnRows.reduce((s,r)=>s+r.taxable,0))}</td><td style={cell}/><td style={{...cell,...right,fontWeight:700}}>{money(tax)}</td></tr></tbody></table><div style={{marginTop:4}}><b>Tax Amount (In Words) :</b> {numberWords(tax)}</div></td></tr>
       <tr><td colSpan={2} style={cell}><b>Bank Detail</b><br/>BENEFICIARY: {invoice.bankHolderName || company?.bankHolderName || company?.name || ""}<br/>BANK NAME: {invoice.bankName || company?.bankName || ""}<br/>A/C NO: {invoice.bankAccountNumber || company?.bankAccountNumber || ""}<br/>IFSC CODE: {invoice.bankIfscCode || company?.bankIfscCode || ""}<br/>BRANCH: {invoice.bankBranchName || company?.bankBranchName || ""}</td></tr>
       <tr><td colSpan={2} style={cell}><b>Terms</b> {invoice.termsAndConditions || "All disputes subject to Chennai Jurisdiction only."}<br/><b>Declaration</b> Computerized generated Invoice. Signature not required <span style={{float:"right"}}>E &amp; OE</span></td></tr>
       <tr><td colSpan={2} style={{...cell,height:76,textAlign:"right",verticalAlign:"bottom",borderTop:0}}><b>For {company?.name||""}</b><br/>{company?.signatureUrl ? <img src={company.signatureUrl} alt="Authorised signature" style={{display:"inline-block",width:`${Math.max(60,Math.min(320,Number(company.signatureWidth||160)))}px`,height:`${Math.max(25,Math.min(140,Number(company.signatureHeight||60)))}px`,objectFit:"contain",objectPosition:"right bottom"}}/> : <br/>}<br/>Authorised Signatory</td></tr>

@@ -88,7 +88,7 @@ export function normalizeInvoicePayload(input: unknown): unknown {
   const source = input as Record<string, unknown>;
   const numeric = (value: unknown) => value === null || value === undefined || value === "" ? value : Number(value);
   const normalized: Record<string, unknown> = { ...source };
-  for (const key of ["amount", "total", "cgstRate", "sgstRate", "igstRate", "discountAmount"]) {
+  for (const key of ["amount", "total", "cgstRate", "sgstRate", "igstRate", "discountAmount", "roundOff"]) {
     if (key in source) normalized[key] = numeric(source[key]);
   }
   if (Array.isArray(source.items)) {
@@ -125,6 +125,7 @@ export const invoiceSchema = z.object({
   manualNumberOverride: z.boolean().optional().default(false),
   documentType: z.enum(["TAX_INVOICE", "PROFORMA"]).default("TAX_INVOICE"),
   discountAmount: z.number().finite().min(0).max(9999999999.99).default(0),
+  roundOff: z.number().finite().min(-9999999999.99).max(9999999999.99).default(0),
   kindAttn: optionalInvoiceText(150),
   mobileNo: optionalInvoiceText(30),
   poNumber: optionalInvoiceText(50),

@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   if (access instanceof NextResponse) return access;
   try {
     const body = await request.json();
-    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl, signatureUrl, signatureWidth, signatureHeight } = body;
+    const { name, gstNo, state, stateCode, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl, signatureUrl, signatureWidth, signatureHeight } = body;
 
     if (!name || !date) {
       return NextResponse.json({ error: "Name and date are required" }, { status: 400 });
@@ -79,6 +79,8 @@ export async function POST(request: NextRequest) {
         adminId: access.user.workspaceId!,
         name,
         gstNo: gstNo || null,
+        state: typeof state === "string" ? state.trim() || null : null,
+        stateCode: typeof stateCode === "string" ? stateCode.trim() || null : null,
         email: email || null,
         date: new Date(date),
         status: status || "active",

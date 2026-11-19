@@ -256,9 +256,7 @@ export function CompaniesClient() {
           <div className="min-w-0">
             <p className="text-foreground truncate font-semibold">{info.row.original.name}</p>
             <WorkspaceOwner workspace={info.row.original.workspace} />
-            {info.row.original.address && (
-              <p className="text-muted-foreground truncate text-xs">{info.row.original.address}</p>
-            )}
+    
           </div>
         </div>
       ),

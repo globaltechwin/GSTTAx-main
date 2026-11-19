@@ -103,6 +103,7 @@ export interface InvoicePrintData {
   logoUrl: string | null;
   documentType?: "TAX_INVOICE" | "PROFORMA";
   discountAmount?: number | null;
+  roundOff?: number | null;
   kindAttn?: string | null;
   mobileNo?: string | null;
   poNumber?: string | null;
@@ -279,12 +280,15 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
     for (const item of invoice.items) {
       const itemTaxType: TaxType = item.gstType ? (item.gstType as TaxType) : taxType;
       if (itemTaxType === "CGST_SGST") {
-        const cRate = item.cgstRate != null ? Number(item.cgstRate) : invoice.cgstRate;
-        const sRate = item.sgstRate != null ? Number(item.sgstRate) : invoice.sgstRate;
+        const itemCgstRate = Number(item.cgstRate || 0);
+        const itemSgstRate = Number(item.sgstRate || 0);
+        const cRate = itemCgstRate > 0 ? itemCgstRate : Number(invoice.cgstRate || 0);
+        const sRate = itemSgstRate > 0 ? itemSgstRate : Number(invoice.sgstRate || 0);
         cgstTotal += (Number(item.amount) * cRate) / 100;
         sgstTotal += (Number(item.amount) * sRate) / 100;
       } else if (itemTaxType === "IGST") {
-        const iRate = item.igstRate != null ? Number(item.igstRate) : invoice.igstRate;
+        const itemIgstRate = Number(item.igstRate || 0);
+        const iRate = itemIgstRate > 0 ? itemIgstRate : Number(invoice.igstRate || 0);
         igstTotal += (Number(item.amount) * iRate) / 100;
       }
     }
@@ -294,8 +298,8 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
     const factor = subtotal > 0 ? (subtotal - discount) / subtotal : 0;
     const adjustedTax = taxTotal * factor;
     const grandTotal = subtotal - discount + adjustedTax;
-    const roundedTotal = Math.round(grandTotal);
-    const roundOff = roundedTotal - grandTotal;
+    const roundOff = Number(invoice.roundOff || 0);
+    const roundedTotal = Math.round((grandTotal + roundOff) * 100) / 100;
 
     return {
       subtotal,
@@ -1388,8 +1392,10 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
             >
               {(() => {
                 const rateMap = new Map<
-                  number,
+                  string,
                   {
+                    taxType: "CGST_SGST" | "IGST";
+                    rate: number;
                     taxableValue: number;
                     cgstRate: number;
                     cgstAmount: number;
@@ -1405,12 +1411,15 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                   const taxableValue = Number(item.amount);
 
                   if (itemTaxType === "CGST_SGST") {
-                    const cgstRate =
-                      item.cgstRate != null ? Number(item.cgstRate) : invoice.cgstRate;
-                    const sgstRate =
-                      item.sgstRate != null ? Number(item.sgstRate) : invoice.sgstRate;
+                    const itemCgstRate = Number(item.cgstRate || 0);
+                    const itemSgstRate = Number(item.sgstRate || 0);
+                    const cgstRate = itemCgstRate > 0 ? itemCgstRate : Number(invoice.cgstRate || 0);
+                    const sgstRate = itemSgstRate > 0 ? itemSgstRate : Number(invoice.sgstRate || 0);
                     const gstRate = cgstRate + sgstRate;
-                    const existing = rateMap.get(gstRate) || {
+                    const mapKey = `CGST_SGST:${gstRate}`;
+                    const existing = rateMap.get(mapKey) || {
+                      taxType: "CGST_SGST" as const,
+                      rate: gstRate,
                       taxableValue: 0,
                       cgstRate,
                       cgstAmount: 0,
@@ -1422,11 +1431,14 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                     existing.taxableValue += taxableValue;
                     existing.cgstAmount += (taxableValue * cgstRate) / 100;
                     existing.sgstAmount += (taxableValue * sgstRate) / 100;
-                    rateMap.set(gstRate, existing);
+                    rateMap.set(mapKey, existing);
                   } else if (itemTaxType === "IGST") {
-                    const igstRate =
-                      item.igstRate != null ? Number(item.igstRate) : invoice.igstRate;
-                    const existing = rateMap.get(igstRate) || {
+                    const itemIgstRate = Number(item.igstRate || 0);
+                    const igstRate = itemIgstRate > 0 ? itemIgstRate : Number(invoice.igstRate || 0);
+                    const mapKey = `IGST:${igstRate}`;
+                    const existing = rateMap.get(mapKey) || {
+                      taxType: "IGST" as const,
+                      rate: igstRate,
                       taxableValue: 0,
                       cgstRate: 0,
                       cgstAmount: 0,
@@ -1437,13 +1449,13 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                     };
                     existing.taxableValue += taxableValue;
                     existing.igstAmount += (taxableValue * igstRate) / 100;
-                    rateMap.set(igstRate, existing);
+                    rateMap.set(mapKey, existing);
                   }
                 }
 
-                const rateRows = Array.from(rateMap.entries()).sort((a, b) => b[0] - a[0]);
-                const hasCgst = rateRows.some(([, r]) => r.cgstRate > 0);
-                const hasIgst = rateRows.some(([, r]) => r.igstRate > 0);
+                const rateRows = Array.from(rateMap.entries()).sort((a, b) => b[1].rate - a[1].rate);
+                const hasCgst = rateRows.some(([, r]) => r.taxType === "CGST_SGST");
+                const hasIgst = rateRows.some(([, r]) => r.taxType === "IGST");
 
                 const totalTaxable = rateRows.reduce((s, [, r]) => s + r.taxableValue, 0);
                 const totalCgst = rateRows.reduce((s, [, r]) => s + r.cgstAmount, 0);
@@ -1463,7 +1475,7 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                             fontSize: "9px",
                           }}
                         >
-                          GST Rate
+                          Tax Type / Rate
                         </th>
                         <th
                           style={{
@@ -1581,45 +1593,28 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                           <th style={{ border: S.border }} />
                         </tr>
                       )}
-                      {hasIgst && !hasCgst && (
+                      {hasIgst && (
                         <tr style={{ background: "#dbeafe" }}>
-                          <th style={{ border: S.border }} />
-                          <th style={{ border: S.border }} />
-                          <th
-                            style={{
-                              border: S.border,
-                              padding: "1px 2px",
-                              textAlign: "center",
-                              fontSize: "8px",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            Rate
-                          </th>
-                          <th
-                            style={{
-                              border: S.border,
-                              padding: "1px 2px",
-                              textAlign: "right",
-                              fontSize: "8px",
-                              fontWeight: "bold",
-                            }}
-                          >
-                            Amount
-                          </th>
+                          {hasCgst ? (
+                            <><th style={{ border: S.border }} /><th style={{ border: S.border }} /><th style={{ border: S.border }} /><th style={{ border: S.border }} /><th style={{ border: S.border }} /><th style={{ border: S.border }} /></>
+                          ) : (
+                            <><th style={{ border: S.border }} /><th style={{ border: S.border }} /></>
+                          )}
+                          <th style={{ border: S.border, padding: "1px 2px", textAlign: "center", fontSize: "8px", fontWeight: "bold" }}>Rate</th>
+                          <th style={{ border: S.border, padding: "1px 2px", textAlign: "right", fontSize: "8px", fontWeight: "bold" }}>Amount</th>
                           <th style={{ border: S.border }} />
                         </tr>
                       )}
                     </thead>
                     <tbody>
-                      {rateRows.map(([gstRate, data]) => {
+                      {rateRows.map(([rowKey, data]) => {
                         const totalTax = data.cgstAmount + data.sgstAmount + data.igstAmount;
                         return (
-                          <tr key={gstRate}>
+                          <tr key={rowKey}>
                             <td
                               style={{ border: S.border, padding: "3px 4px", textAlign: "center" }}
                             >
-                              {gstRate.toFixed(2)}%
+                              {data.taxType === "IGST" ? "IGST" : "GST (CGST + SGST)"} ({data.rate.toFixed(2)}%)
                             </td>
                             <td
                               style={{
@@ -1671,7 +1666,7 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                                 </td>
                               </>
                             )}
-                            {hasIgst && !hasCgst && (
+                            {hasIgst && (
                               <>
                                 <td
                                   style={{
@@ -1731,7 +1726,7 @@ export function InvoiceTemplate({ invoice }: InvoiceTemplateProps) {
                             </td>
                           </>
                         )}
-                        {hasIgst && !hasCgst && (
+                        {hasIgst && (
                           <>
                             <td style={{ border: S.border }} />
                             <td

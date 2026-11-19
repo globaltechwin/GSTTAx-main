@@ -160,6 +160,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
   const isEdit = !!invoiceId;
   const isProforma = documentType === "PROFORMA";
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [roundOffAmount, setRoundOffAmount] = useState(0);
   const [kindAttn, setKindAttn] = useState("");
   const [mobileNo, setMobileNo] = useState("");
   const [poNumber, setPoNumber] = useState("");
@@ -181,6 +182,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
   const [sgstRate, setSgstRate] = useState("9");
   const [igstRate, setIgstRate] = useState("18");
   const [taxTypeManuallySet, setTaxTypeManuallySet] = useState(false);
+  const [taxPercentageManuallySet, setTaxPercentageManuallySet] = useState(false);
 
   const [reverseCharge, setReverseCharge] = useState(false);
   const [challanNo, setChallanNo] = useState("");
@@ -296,6 +298,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
         setTermsAndConditions(inv.termsAndConditions || DEFAULT_TERMS_TEXT);
         setLogoUrl(inv.logoUrl || null);
         setDiscountAmount(Number(inv.discountAmount || 0));
+        setRoundOffAmount(Number(inv.roundOff || 0));
         setKindAttn(inv.kindAttn || "");
         setMobileNo(inv.mobileNo || "");
         setPoNumber(inv.poNumber || "");
@@ -356,6 +359,35 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
     setTaxTypeManuallySet(true);
   };
 
+  // Apply one combined tax percentage from Order Summary to all items using
+  // the selected invoice tax type. GST is split equally between CGST and SGST.
+  const applyTaxPercentage = (rawValue: string) => {
+    const parsed = Number.parseFloat(rawValue);
+    const rate = rawValue.trim() === "" || !Number.isFinite(parsed)
+      ? 0
+      : Math.min(100, Math.max(0, parsed));
+
+    setTaxPercentageManuallySet(true);
+    const halfRate = rate / 2;
+    // Keep the same combined percentage when the user switches between GST and IGST.
+    setCgstRate(String(halfRate));
+    setSgstRate(String(halfRate));
+    setIgstRate(String(rate));
+    if (effectiveTaxType === "CGST_SGST") {
+      setItems((prev) => prev.map((item) =>
+        !item.gstType || item.gstType === "CGST_SGST"
+          ? { ...item, cgstRate: halfRate, sgstRate: halfRate }
+          : item
+      ));
+    } else if (effectiveTaxType === "IGST") {
+      setItems((prev) => prev.map((item) =>
+        !item.gstType || item.gstType === "IGST"
+          ? { ...item, igstRate: rate }
+          : item
+      ));
+    }
+  };
+
   const addRow = () => {
     setItems((prev) => [
       ...prev,
@@ -395,7 +427,10 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
   };
 
   const applyProductToInvoiceItem = (id: number, product: WorkspaceProduct) => {
-    const rate = Number(product.gstRate) || 0;
+    const productRate = Number(product.gstRate) || 0;
+    const rate = taxPercentageManuallySet
+      ? (effectiveTaxType === "IGST" ? Number(igstRate) || 0 : (Number(cgstRate) || 0) + (Number(sgstRate) || 0))
+      : productRate;
     setItems((prev) => prev.map((item) => {
       if (item.id !== id) return item;
       const price = Number(product.sellingRate) || 0;
@@ -450,8 +485,8 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
   const discountedIgst = igstTotal * discountFactor;
   const taxTotal = discountedCgst + discountedSgst + discountedIgst;
   const grandTotal = subtotal - safeDiscount + taxTotal;
-  const roundedTotal = Math.round(grandTotal);
-  const roundOff = roundedTotal - grandTotal;
+  const roundOff = Number(roundOffAmount) || 0;
+  const roundedTotal = Math.round((grandTotal + roundOff) * 100) / 100;
 
   const buildInvoiceBody = () => {
     const totalRate = isCGST
@@ -463,6 +498,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
       orderId: invoiceNo,
       documentType,
       discountAmount: safeDiscount,
+      roundOff,
       kindAttn,
       mobileNo,
       poNumber,
@@ -1398,6 +1434,21 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
         <div className="border-border/60 bg-card rounded-2xl border p-6 shadow-sm">
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-4"><Label className="text-sm font-medium">Discount Amount:</Label><Input type="number" min="0" max={subtotal} step="0.01" className="max-w-40 text-right" value={discountAmount} onChange={(e) => setDiscountAmount(Math.max(0, Number(e.target.value) || 0))} /></div>
+            {effectiveTaxType !== "WITHOUT_GST" && (
+              <div className="flex items-center justify-between gap-4">
+                <Label htmlFor="invoiceTaxPercentage" className="text-sm font-medium">Add Tax ({effectiveTaxType === "IGST" ? "IGST" : "GST"}) %:</Label>
+                <Input
+                  id="invoiceTaxPercentage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  className="max-w-40 text-right"
+                  value={effectiveTaxType === "IGST" ? igstRate : String((Number(cgstRate) || 0) + (Number(sgstRate) || 0))}
+                  onChange={(e) => applyTaxPercentage(e.target.value)}
+                />
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Total Amount Before Tax:</Label>
               <span className="text-foreground text-sm font-semibold">
@@ -1435,7 +1486,7 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
 
             {!isNoGST && (
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">Tax Amount : GST:</Label>
+                <Label className="text-sm font-medium">Tax Amount : {isIGST ? "IGST" : "GST"}:</Label>
                 <span className="text-foreground text-sm font-semibold">
                   ₹{taxTotal > 0 ? formatIndianCurrency(taxTotal) : "0.00"}
                 </span>
@@ -1451,14 +1502,10 @@ export function InvoiceForm({ invoiceId, documentType = "TAX_INVOICE" }: { invoi
                   ₹{roundedTotal > 0 ? formatIndianCurrency(roundedTotal) : "0.00"}
                 </span>
               </div>
-              {Math.abs(roundOff) >= 0.005 && (
-                <div className="mt-1 flex items-center justify-between">
-                  <span className="text-muted-foreground text-xs">Round Off:</span>
-                  <span className="text-muted-foreground text-xs">
-                    ₹{formatIndianCurrency(roundOff)}
-                  </span>
-                </div>
-              )}
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <Label htmlFor="roundOffAmount" className="text-muted-foreground text-xs">Round Off (editable):</Label>
+                <Input id="roundOffAmount" type="number" step="0.01" className="h-8 max-w-40 text-right" value={roundOffAmount} onChange={(e) => setRoundOffAmount(Number(e.target.value) || 0)} />
+              </div>
             </div>
           </div>
         </div>

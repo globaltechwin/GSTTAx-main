@@ -32,13 +32,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params;
     const body = await request.json();
-    const { name, gstNo, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl, signatureUrl, signatureWidth, signatureHeight } = body;
+    const { name, gstNo, state, stateCode, email, date, status, ssiNo, panNo, phone, esiNo, address, epfNo, logoUrl, signatureUrl, signatureWidth, signatureHeight } = body;
 
     const result = await prisma.company.updateMany({
       where: { id: parseInt(id), adminId: access.user.workspaceId },
       data: {
         name,
         gstNo: gstNo || null,
+        state: typeof state === "string" ? state.trim() || null : null,
+        stateCode: typeof stateCode === "string" ? stateCode.trim() || null : null,
         email: email || null,
         date: new Date(date),
         status,

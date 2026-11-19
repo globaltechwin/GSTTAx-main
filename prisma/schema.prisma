@@ -103,6 +103,7 @@ model Invoice {
   invoiceNo          String?       @map("invoice_no") @db.VarChar(50)
   documentType       String        @default("TAX_INVOICE") @map("document_type") @db.VarChar(20)
   discountAmount     Decimal       @default(0.00) @map("discount_amount") @db.Decimal(12, 2)
+  roundOff           Decimal       @default(0.00) @map("round_off") @db.Decimal(12, 2)
   kindAttn            String?       @map("kind_attn") @db.VarChar(150)
   mobileNo            String?       @map("mobile_no") @db.VarChar(30)
   poNumber            String?       @map("po_number") @db.VarChar(50)
@@ -570,8 +571,9 @@ model DeliveryChallanItem {
 
 
 model Product {
-  id          Int      @id @default(autoincrement())
-  name        String   @db.VarChar(150)
+  id            Int      @id @default(autoincrement())
+  productNumber Int      @map("product_number")
+  name          String   @db.VarChar(150)
   sku         String   @db.VarChar(80)
   hsnCode     String?  @map("hsn_code") @db.VarChar(20)
   description String?  @db.Text
@@ -591,6 +593,7 @@ model Product {
   inventoryMovements InventoryMovement[]
 
   @@unique([adminId, sku])
+  @@unique([adminId, productNumber])
   @@index([adminId, name])
   @@map("products")
 }
